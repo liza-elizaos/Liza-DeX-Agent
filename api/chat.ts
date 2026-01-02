@@ -1,53 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-// Lazy load executeSwap to avoid module issues on Vercel
-let executeSwap: any = null;
-
-async function getExecuteSwap() {
-  if (!executeSwap) {
-    try {
-      console.log('[CHAT] Attempting to load swap-utils...');
-      
-      // Try multiple import paths for Vercel compatibility
-      let swapModule: any = null;
-      let importError: any = null;
-      
-      // Try 1: Direct relative import (local development)
-      try {
-        swapModule = await import("./swap-utils.ts");
-        console.log('[CHAT] ✅ Loaded swap-utils.ts (direct)');
-      } catch (e1) {
-        importError = e1;
-        console.warn('[CHAT] Failed to load ./swap-utils.ts, trying .ts path...');
-        
-        // Try 2: Without extension
-        try {
-          swapModule = await import("./swap-utils");
-          console.log('[CHAT] ✅ Loaded ./swap-utils (no extension)');
-        } catch (e2) {
-          console.error('[CHAT] Failed both import paths:', { e1: e1?.message, e2: e2?.message });
-          throw new Error(`Unable to load swap module: ${e1?.message || e2?.message}`);
-        }
-      }
-      
-      if (!swapModule || !swapModule.executeSwap) {
-        throw new Error('swap-utils module loaded but executeSwap not found');
-      }
-      
-      executeSwap = swapModule.executeSwap;
-      console.log('[CHAT] ✅ Successfully loaded executeSwap function');
-    } catch (err) {
-      console.error('[CHAT] Failed to load swap-utils:', {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-        env: process.env.NODE_ENV,
-        platform: process.platform,
-      });
-      throw new Error(`Swap functionality not available: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  return executeSwap;
-}
+// Direct import with proper error handling for Vercel + local dev
+import { executeSwap as swapUtilsExecuteSwap } from "./swap-utils";
 
 // Helper function to get balance via JSON-RPC directly
 async function getBalanceViajsonRpc(publicKey: string, rpcUrl: string): Promise<number> {
@@ -325,13 +278,10 @@ Please try again.`;
     
     console.log(`[CHAT] Executing swap: ${amount} ${fromToken} -> ${toToken} (${swapMode}) for wallet: ${walletAddress}`);
 
-    // Execute the swap using lazy-loaded function
+    // Execute the swap using direct import
     try {
-      console.log(`[CHAT] Loading swap utilities...`);
-      const swapExecutor = await getExecuteSwap();
-      
       console.log(`[CHAT] Calling executeSwap with: ${fromToken} -> ${toToken}, amount: ${amount}, wallet: ${walletAddress.substring(0, 8)}...`);
-      const result = await swapExecutor(fromToken, toToken, amount, walletAddress, swapMode);
+      const result = await swapUtilsExecuteSwap(fromToken, toToken, amount, walletAddress, swapMode);
       
       if (!result) {
         return `❌ Swap failed: No result returned from swap function`;
