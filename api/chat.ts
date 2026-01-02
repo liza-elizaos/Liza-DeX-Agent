@@ -287,6 +287,18 @@ Please try again.`;
       }
       
       if (result.success) {
+        // If this is a pending_signature swap, return structured response with swap object
+        if (result.swap && result.swap.status === 'pending_signature') {
+          console.log('[CHAT] Returning pending_signature swap with transactionBase64');
+          // Store swap data in session context for the response
+          (globalThis as any).__lastSwapData = result.swap;
+          return JSON.stringify({
+            _type: 'swap_pending_signature',
+            message: result.message || '🔄 Swap Instructions Ready for Signing',
+            swap: result.swap,
+          });
+        }
+        // Regular server-signed swap
         return result.message || `✅ Swap executed successfully!\n\n${amount} ${fromToken} -> ${result.txHash ? `Transaction: ${result.txHash}` : 'Completed'}`;
       } else {
         return result.message || `❌ Swap failed: ${result.error || 'Unknown error'}`;
@@ -489,13 +501,26 @@ export default async function handler(
     // Generate AI response (now async!)
     const response = await generateResponse(message, context || "trading", config, walletPublicKey);
 
-    const chatResponse: ChatResponse = {
-      response,
-      sessionId: finalSessionId,
-      timestamp: new Date().toISOString(),
-    };
+    // Check if response is a structured swap response
+    let responseObject: any = { response, sessionId: finalSessionId, timestamp: new Date().toISOString() };
+    
+    try {
+      if (typeof response === 'string' && response.startsWith('{') && response.includes('_type')) {
+        const parsed = JSON.parse(response);
+        if (parsed._type === 'swap_pending_signature') {
+          responseObject = {
+            response: parsed.message,
+            swap: parsed.swap,
+            sessionId: finalSessionId,
+            timestamp: new Date().toISOString(),
+          };
+        }
+      }
+    } catch (e) {
+      // Not a JSON response, use as-is
+    }
 
-    return res.status(200).json(chatResponse);
+    return res.status(200).json(responseObject);
   } catch (error) {
     console.error("Chat API error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

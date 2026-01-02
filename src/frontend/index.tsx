@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import React, { useState, useRef, useEffect } from 'react';
 import type { UUID } from '@elizaos/core';
+import { signAndSendBase64Tx } from './phantom-sign-and-send';
 
 const queryClient = new QueryClient();
 
@@ -197,6 +198,54 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Handle pending signature swap - automatically trigger Phantom signing
+      if (data.swap && data.swap.status === 'pending_signature' && data.swap.transactionBase64) {
+        console.log('[CHAT] Detected pending signature swap, triggering Phantom signing...');
+        
+        try {
+          // Get Phantom wallet
+          const phantomWallet = (window as any).solana;
+          if (!phantomWallet) {
+            throw new Error('Phantom wallet not found. Please install Phantom and connect your wallet.');
+          }
+
+          // Call signing helper
+          const rpcUrl = 'https://api.mainnet-beta.solana.com'; // Default RPC, can be customized
+          const txHash = await signAndSendBase64Tx(data.swap.transactionBase64, phantomWallet, rpcUrl);
+          
+          // Show success message
+          const successMessage: Message = {
+            id: `msg_${Date.now()}_success`,
+            role: 'assistant',
+            content: `✅ Swap completed!\n\nTransaction: ${txHash}\n\n${data.swap.amount} ${data.swap.fromToken} → ${data.swap.estimatedOutput} ${data.swap.toToken}`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, successMessage]);
+        } catch (signError) {
+          console.error('[CHAT] Signing error:', signError);
+          const errorMsg = signError instanceof Error ? signError.message : String(signError);
+          
+          // Check if user rejected the transaction
+          if (errorMsg.includes('User rejected')) {
+            const rejectionMessage: Message = {
+              id: `msg_${Date.now()}_rejected`,
+              role: 'assistant',
+              content: `❌ Transaction rejected by user.\n\nYour swap was not executed. You can try again by typing your swap request.`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, rejectionMessage]);
+          } else {
+            const failureMessage: Message = {
+              id: `msg_${Date.now()}_failure`,
+              role: 'assistant',
+              content: `❌ Failed to sign/send transaction:\n\n${errorMsg}`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, failureMessage]);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error:', error);
       const errorMessage: Message = {
