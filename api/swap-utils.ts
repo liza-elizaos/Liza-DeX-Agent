@@ -53,9 +53,11 @@ function getTokenDecimals(tokenSymbolOrAddress: string): number {
 
 // Helper function to resolve token contract address
 function resolveTokenAddress(token: string): string {
+  // For contract addresses, preserve original case (addresses are case-sensitive!)
+  const originalToken = token.trim();
   let processedToken = token.toLowerCase().trim();
   
-  // Check if it's a known token symbol
+  // Check if it's a known token symbol (use lowercase for lookup)
   if (KNOWN_TOKENS[processedToken]) {
     return KNOWN_TOKENS[processedToken];
   }
@@ -64,37 +66,39 @@ function resolveTokenAddress(token: string): string {
   // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
   const base58Regex = /^[1-9A-HJNPZa-km-z]{43,44}$/;
   
-  // FIRST: Check if it's already a valid base58 address (case-insensitive)
-  if (base58Regex.test(processedToken)) {
-    console.log(`[TOKEN] Valid contract address detected: ${processedToken}`);
-    return processedToken;
+  // FIRST: Check if it's already a valid base58 address
+  // NOTE: Use original token for validation and return (preserve case)
+  if (base58Regex.test(originalToken)) {
+    console.log(`[TOKEN] Valid contract address detected: ${originalToken}`);
+    return originalToken; // Return with original case!
   }
   
   // Clean up obvious URL patterns (pump.fun, etc)
-  if (processedToken.includes('http://') || processedToken.includes('https://') || processedToken.includes('pump.fun/')) {
-    processedToken = processedToken
+  let cleanedToken = originalToken;
+  if (cleanedToken.includes('http://') || cleanedToken.includes('https://') || cleanedToken.includes('pump.fun/')) {
+    cleanedToken = cleanedToken
       .replace(/^https?:\/\//, '')
       .replace(/^pump\.fun\//, '')
       .replace(/\/$/, '')
       .trim();
     
-    // Re-check if it's now valid
-    if (base58Regex.test(processedToken)) {
-      console.log(`[TOKEN] Valid contract address after URL cleanup: ${processedToken}`);
-      return processedToken;
+    // Re-check if it's now valid (check against original case)
+    if (base58Regex.test(cleanedToken)) {
+      console.log(`[TOKEN] Valid contract address after URL cleanup: ${cleanedToken}`);
+      return cleanedToken;
     }
   }
   
   // Check if it looks like base58 but wrong length
   const looseBase58Regex = /^[1-9A-HJNPZa-km-z]+$/;
-  if (looseBase58Regex.test(processedToken)) {
-    console.log(`[TOKEN] Base58 format detected but wrong length: ${processedToken.length} chars`);
-    return `INVALID_LENGTH:${processedToken}`;
+  if (looseBase58Regex.test(cleanedToken)) {
+    console.log(`[TOKEN] Base58 format detected but wrong length: ${cleanedToken.length} chars`);
+    return `INVALID_LENGTH:${cleanedToken}`;
   }
   
   // Not recognized - return original for Jupiter token list lookup
   console.log(`[TOKEN] Not a known token or valid address, will attempt Jupiter lookup: ${token}`);
-  return processedToken;
+  return originalToken; // Return original, might be needed for Jupiter lookup
 }
 
 // Helper function to search Jupiter token list API (fallback for unknown tokens)
