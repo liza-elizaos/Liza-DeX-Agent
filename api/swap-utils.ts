@@ -93,6 +93,13 @@ function resolveTokenAddress(token: string): string {
   const looseBase58Regex = /^[1-9A-HJNPZa-km-z]+$/;
   if (looseBase58Regex.test(cleanedToken)) {
     console.log(`[TOKEN] Base58 format detected but wrong length: ${cleanedToken.length} chars`);
+    // Try to extract a 43-44 char base58 substring (handles cases like "...pump" suffix)
+    const extractMatch = cleanedToken.match(/([1-9A-HJNPZa-km-z]{43,44})/);
+    if (extractMatch) {
+      console.log(`[TOKEN] Extracted valid base58 substring: ${extractMatch[1]}`);
+      return extractMatch[1];
+    }
+
     return `INVALID_LENGTH:${cleanedToken}`;
   }
   
