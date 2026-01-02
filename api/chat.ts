@@ -199,7 +199,8 @@ Please try again.`;
     console.log('[CHAT] Swap request detected, parsing parameters...');
     
     // Parse swap parameters from message
-    const text = message.toLowerCase();
+    // Use original message (preserve token case) and rely on case-insensitive regex
+    const text = message;
     
     // Updated patterns to support contract addresses (43-44 char base58 strings)
     // Base58 alphabet for Solana: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
