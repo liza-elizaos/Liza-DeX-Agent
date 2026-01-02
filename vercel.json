@@ -2,11 +2,5 @@
   "version": 2,
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "public": true,
-  "env": {
-    "SOLANA_RPC_URL": "@solana_rpc_url",
-    "JUPITER_API_URL": "@jupiter_api_url",
-    "JUPITER_API_KEY": "@jupiter_api_key",
-    "SOLANA_NETWORK": "@solana_network"
-  }
+  "public": true
 }
