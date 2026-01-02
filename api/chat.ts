@@ -201,51 +201,63 @@ Please try again.`;
     // Parse swap parameters from message
     const text = message.toLowerCase();
     
-    // Pattern 1: "buy 100 TOKEN from SOL" or "buy TOKEN from SOL"
-    const buyMatch = text.match(/buy\s+(?:([\d.]+)\s+)?(\w+)\s+(?:from|with)\s+(\w+)/i);
+    // Updated patterns to support contract addresses (43-44 char base58 strings)
+    // Pattern for contract addresses: any 43-44 character base58 string
+    const contractAddressPattern = '[1-9A-HJNPZa-km-z]{43,44}';
     
-    // Pattern 2: "swap 100 SOL for TOKEN" or "swap SOL for TOKEN" or "swap 100 SOL to TOKEN"
-    const swapMatch = text.match(/swap\s+(?:([\d.]+)\s+)?(\w+)\s+(?:to|for)\s+(\w+)/i);
+    // Pattern 1: "buy 100 TOKEN from SOL" or "buy TOKEN from SOL" (supports contract addresses)
+    const buyMatch = text.match(new RegExp(`buy\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:from|with)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
     
-    // Pattern 3: "exchange 100 TOKEN1 for TOKEN2" or "exchange TOKEN1 for TOKEN2"
-    const exchangeMatch = text.match(/exchange\s+(?:([\d.]+)\s+)?(\w+)\s+(?:for|to)\s+(\w+)/i);
+    // Pattern 2: "swap 100 SOL for TOKEN" or "swap SOL for TOKEN" (supports contract addresses and "all")
+    const swapMatch = text.match(new RegExp(`swap\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:to|for)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
+    
+    // Pattern 3: "exchange 100 TOKEN1 for TOKEN2" (supports contract addresses and "all")
+    const exchangeMatch = text.match(new RegExp(`exchange\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:for|to)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
     
     let amount: number = 0;
+    let amountStr: string = '';
     let fromToken: string = '';
     let toToken: string = '';
     let swapMode: 'ExactIn' | 'ExactOut' = 'ExactIn';
+    let useAllBalance: boolean = false;
 
     if (buyMatch) {
-      const amountStr = buyMatch[1] || '1';
-      amount = parseFloat(amountStr);
+      amountStr = buyMatch[1] || '1';
       toToken = buyMatch[2];
       fromToken = buyMatch[3];
       swapMode = 'ExactOut';
-      console.log(`[CHAT] Buy detected: ${amount} ${toToken} from ${fromToken} (Exact-Out)`);
+      console.log(`[CHAT] Buy detected: ${amountStr} ${toToken} from ${fromToken} (Exact-Out)`);
     } else if (swapMatch) {
-      const amountStr = swapMatch[1] || '1';
-      amount = parseFloat(amountStr);
+      amountStr = swapMatch[1] || '1';
       fromToken = swapMatch[2];
       toToken = swapMatch[3];
       swapMode = 'ExactIn';
-      console.log(`[CHAT] Swap detected: ${amount} ${fromToken} to ${toToken} (Exact-In)`);
+      console.log(`[CHAT] Swap detected: ${amountStr} ${fromToken} to ${toToken} (Exact-In)`);
     } else if (exchangeMatch) {
-      const amountStr = exchangeMatch[1] || '1';
-      amount = parseFloat(amountStr);
+      amountStr = exchangeMatch[1] || '1';
       fromToken = exchangeMatch[2];
       toToken = exchangeMatch[3];
       swapMode = 'ExactIn';
-      console.log(`[CHAT] Exchange detected: ${amount} ${fromToken} for ${toToken} (Exact-In)`);
+      console.log(`[CHAT] Exchange detected: ${amountStr} ${fromToken} for ${toToken} (Exact-In)`);
     } else {
-      return `❌ Could not parse swap request\n\n**Supported formats:**\n- "buy 100 TOKEN from SOL" or "buy TOKEN from SOL"\n- "swap 100 SOL for TOKEN" or "swap SOL for TOKEN"\n- "exchange 50 TOKEN1 to TOKEN2" or "exchange TOKEN1 to TOKEN2"\n\n**Examples:**\n- "buy 100 BONK from SOL"\n- "swap 1 SOL for USDC"\n- "exchange 0.5 TOKEN1 for TOKEN2"`;
+      return `❌ Could not parse swap request\n\n**Supported formats:**\n- "buy 100 TOKEN from SOL" or "buy TOKEN from SOL"\n- "swap 100 SOL for TOKEN" or "swap SOL for TOKEN"\n- "swap all TOKEN for SOL" (use all balance)\n- "exchange 50 TOKEN1 to TOKEN2" or "exchange TOKEN1 to TOKEN2"\n\n**Token identifiers:**\n- Token ticker: "BONK", "USDC", "SOL"\n- Contract address: full 43-44 character mint address\n\n**Examples:**\n- "buy 100 BONK from SOL"\n- "swap 1 SOL for USDC"\n- "swap all HdZh1mUvCVJzHfTFaJJxZJFENhiFAkyiXLA5iZZTpump for SOL"`;
     }
 
-    if (!amount || amount <= 0) {
-      return `❌ Invalid amount: ${amount}\n\nAmount must be greater than 0`;
+    // Handle "all" keyword to use wallet balance
+    if (amountStr.toLowerCase() === 'all') {
+      useAllBalance = true;
+      amount = -1; // Special marker for "use all balance"
+      console.log('[CHAT] "all" keyword detected - will use entire wallet balance');
+    } else {
+      amount = parseFloat(amountStr);
+    }
+
+    if (!useAllBalance && (!amount || amount <= 0)) {
+      return `❌ Invalid amount: ${amountStr}\n\nAmount must be greater than 0 or use "all" keyword`;
     }
 
     if (!fromToken || !toToken) {
-      return `❌ Invalid tokens\n\nFrom: ${fromToken}, To: ${toToken}`;
+      return `❌ Invalid tokens\n\nFrom: ${fromToken}, To: ${toToken}\n\nAccepted formats: token name (e.g., BONK) or contract address (43-44 chars)`;
     }
 
     // Get wallet address - Priority: walletPublicKey from request > config > env variable
@@ -275,12 +287,12 @@ Please try again.`;
     
     console.log(`[CHAT] Using wallet address: ${walletAddress.substring(0, 8)}...${walletAddress.substring(walletAddress.length - 8)} (from: ${walletPublicKey ? 'request' : 'config/env'})`);
     
-    console.log(`[CHAT] Executing swap: ${amount} ${fromToken} -> ${toToken} (${swapMode}) for wallet: ${walletAddress}`);
+    console.log(`[CHAT] Executing swap: ${useAllBalance ? 'ALL' : amount} ${fromToken} -> ${toToken} (${swapMode}) for wallet: ${walletAddress}`);
 
     // Execute the swap
     try {
-      console.log(`[CHAT] Calling executeSwap with: ${fromToken} -> ${toToken}, amount: ${amount}, wallet: ${walletAddress.substring(0, 8)}...`);
-      const result = await executeSwap(fromToken, toToken, amount, walletAddress, swapMode);
+      console.log(`[CHAT] Calling executeSwap with: ${fromToken} -> ${toToken}, amount: ${amount}, useAllBalance: ${useAllBalance}, wallet: ${walletAddress.substring(0, 8)}...`);
+      const result = await executeSwap(fromToken, toToken, amount, walletAddress, swapMode, useAllBalance);
       
       if (!result) {
         return `❌ Swap failed: No result returned from swap function`;

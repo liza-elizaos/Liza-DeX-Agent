@@ -60,32 +60,40 @@ function resolveTokenAddress(token: string): string {
     return KNOWN_TOKENS[processedToken];
   }
   
-  // Only clean up obvious URL patterns, not base58 addresses
-  // If it contains obvious URL markers, remove them
+  // Validate it looks like a base58 address (43-44 chars for valid Solana addresses)
+  // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+  const base58Regex = /^[1-9A-HJNPZa-km-z]{43,44}$/;
+  
+  // FIRST: Check if it's already a valid base58 address (case-insensitive)
+  if (base58Regex.test(processedToken)) {
+    console.log(`[TOKEN] Valid contract address detected: ${processedToken}`);
+    return processedToken;
+  }
+  
+  // Clean up obvious URL patterns (pump.fun, etc)
   if (processedToken.includes('http://') || processedToken.includes('https://') || processedToken.includes('pump.fun/')) {
     processedToken = processedToken
       .replace(/^https?:\/\//, '')
       .replace(/^pump\.fun\//, '')
       .replace(/\/$/, '')
       .trim();
+    
+    // Re-check if it's now valid
+    if (base58Regex.test(processedToken)) {
+      console.log(`[TOKEN] Valid contract address after URL cleanup: ${processedToken}`);
+      return processedToken;
+    }
   }
   
-  // Validate it looks like a base58 address (43-44 chars for valid Solana addresses)
-  // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
-  // NOTE: "pump" at the end can be part of the actual token address (e.g. pump.fun tokens)
-  const base58Regex = /^[1-9A-HJNPZa-km-z]{43,44}$/;
-  if (base58Regex.test(processedToken)) {
-    return processedToken;
-  }
-  
-  // If it still looks like it could be base58 but wrong length, indicate that
-  const loosBase58Regex = /^[1-9A-HJNPZa-km-z]+$/;
-  if (loosBase58Regex.test(processedToken)) {
-    // It's base58 but wrong length - return marker that will be caught later
+  // Check if it looks like base58 but wrong length
+  const looseBase58Regex = /^[1-9A-HJNPZa-km-z]+$/;
+  if (looseBase58Regex.test(processedToken)) {
+    console.log(`[TOKEN] Base58 format detected but wrong length: ${processedToken.length} chars`);
     return `INVALID_LENGTH:${processedToken}`;
   }
   
-  // Return original for Jupiter to attempt lookup
+  // Not recognized - return original for Jupiter token list lookup
+  console.log(`[TOKEN] Not a known token or valid address, will attempt Jupiter lookup: ${token}`);
   return processedToken;
 }
 
@@ -170,7 +178,8 @@ export async function executeSwap(
   toTokenContract: string,
   amount: number,
   walletAddress: string,
-  swapMode?: 'ExactIn' | 'ExactOut'
+  swapMode?: 'ExactIn' | 'ExactOut',
+  useAllBalance?: boolean
 ) {
   try {
     const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
@@ -270,7 +279,37 @@ export async function executeSwap(
     }
 
     // Validate amount
-    if (amount <= 0) {
+    if (useAllBalance && amount === -1) {
+      // Fetch the actual balance and use it
+      try {
+        console.log('[SWAP] "all" keyword detected - fetching wallet balance...');
+        const balance = await connection.getBalance(userPublicKey);
+        const balanceInSOL = balance / 1e9;
+        console.log(`[SWAP] Wallet balance: ${balanceInSOL} SOL (${balance} lamports)`);
+        
+        // For SOL swaps, use all balance minus fees (keep ~0.01 SOL for fees)
+        if (fromTokenContract.toLowerCase() === 'sol' || inputMint === KNOWN_TOKENS['sol']) {
+          amount = Math.max(0.001, balanceInSOL - 0.01);
+          console.log(`[SWAP] Using all SOL balance minus fees: ${amount} SOL`);
+        } else {
+          // For token swaps, we'll need to fetch the token balance
+          // For now, this would require additional SPL token account lookup
+          // Return an error asking for explicit amount
+          return {
+            success: false,
+            error: 'Cannot determine token balance',
+            message: `❌ "all" keyword not supported for token balances yet\n\nFor token swaps, please specify an amount explicitly.\n\nExample: "swap 100 ${fromTokenContract} for SOL"`,
+          };
+        }
+      } catch (error) {
+        console.error('[SWAP] Error fetching balance:', error);
+        return {
+          success: false,
+          error: 'Failed to fetch balance',
+          message: `❌ Balance Lookup Failed\n\n${getErrorMessage(error)}\n\nPlease try again or specify an explicit amount.`,
+        };
+      }
+    } else if (amount <= 0) {
       return {
         success: false,
         error: 'Amount must be greater than 0',
