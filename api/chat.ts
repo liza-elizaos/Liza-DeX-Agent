@@ -202,17 +202,19 @@ Please try again.`;
     const text = message.toLowerCase();
     
     // Updated patterns to support contract addresses (43-44 char base58 strings)
-    // Pattern for contract addresses: any 43-44 character base58 string
-    const contractAddressPattern = '[1-9A-HJNPZa-km-z]{43,44}';
+    // Base58 alphabet for Solana: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+    const base58Pattern = '[1-9A-HJNPZa-km-z]{43,44}';
+    // Token can be: word (ticker), or base58 address, or word with 'pump' suffix (pump.fun tokens)
+    const tokenPattern = `(?:[a-z0-9_]+|${base58Pattern})`;
     
     // Pattern 1: "buy 100 TOKEN from SOL" or "buy TOKEN from SOL" (supports contract addresses)
-    const buyMatch = text.match(new RegExp(`buy\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:from|with)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
+    const buyMatch = text.match(new RegExp(`buy\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:from|with)\\s+(${tokenPattern})`, 'i'));
     
     // Pattern 2: "swap 100 SOL for TOKEN" or "swap SOL for TOKEN" (supports contract addresses and "all")
-    const swapMatch = text.match(new RegExp(`swap\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:to|for)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
+    const swapMatch = text.match(new RegExp(`swap\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:to|for)\\s+(${tokenPattern})`, 'i'));
     
     // Pattern 3: "exchange 100 TOKEN1 for TOKEN2" (supports contract addresses and "all")
-    const exchangeMatch = text.match(new RegExp(`exchange\\s+(?:([\\d.]+|all)\\s+)?([\\w${contractAddressPattern}]+)\\s+(?:for|to)\\s+([\\w${contractAddressPattern}]+)`, 'i'));
+    const exchangeMatch = text.match(new RegExp(`exchange\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:for|to)\\s+(${tokenPattern})`, 'i'));
     
     let amount: number = 0;
     let amountStr: string = '';
