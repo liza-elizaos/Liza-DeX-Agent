@@ -1,0 +1,101 @@
+{
+  "name": "liza",
+  "description": "LIZA - Autonomous Solana AI Assistant for elizaOS",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "module": "dist/src/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "project",
+    "elizaos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/src/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@elizaos/cli": "1.7.0",
+    "@elizaos/client": "1.7.0",
+    "@elizaos/core": "1.7.0",
+    "@elizaos/plugin-anthropic": "^1.5.12",
+    "@elizaos/plugin-bootstrap": "1.7.0",
+    "@elizaos/plugin-discord": "^1.3.3",
+    "@elizaos/plugin-elizacloud": "^1.7.3",
+    "@elizaos/plugin-google-genai": "^1.1.0",
+    "@elizaos/plugin-openai": "^1.6.0",
+    "@elizaos/plugin-openrouter": "^1.5.17",
+    "@elizaos/plugin-raydium": "^1.0.2",
+    "@elizaos/plugin-solana": "^1.2.6",
+    "@elizaos/plugin-sql": "1.7.0",
+    "@elizaos/plugin-telegram": "^1.6.2",
+    "@elizaos/plugin-twitter": "^1.2.22",
+    "@elizaos/server": "1.7.0",
+    "@solana/wallet-adapter-phantom": "^0.9.28",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/web3.js": "^1.98.4",
+    "@tanstack/react-query": "^5.67.2",
+    "clsx": "^2.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.10",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.0.4",
+    "@vercel/node": "^5.5.16",
+    "@vitejs/plugin-react": "^5.1.1",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
+  },
+  "scripts": {
+    "start": "bun run server.ts",
+    "dev": "bun run server.ts",
+    "server": "bun run server.ts",
+    "swap": "bun swap.ts",
+    "swap:interactive": "bun swap-interactive.ts",
+    "swap:batch": "bun swap-batch.ts",
+    "vercel-dev": "vercel dev",
+    "build": "bun run build.ts || (npm run build:tsc && npm run build:vite)",
+    "build:vite": "vite build",
+    "build:tsc": "tsc",
+    "lint": "prettier --write ./src",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "test:component": "bun run test:install && bun test",
+    "test:e2e": "bun run test:install && bun test",
+    "test": "bun run test:install && bun run test:component && bun run test:e2e",
+    "test:coverage": "bun run test:install && bun test --coverage",
+    "test:watch": "bun run test:install && bun test --watch",
+    "test:install": "node scripts/install-test-deps.js",
+    "format": "prettier --write ./src",
+    "format:check": "prettier --check ./src",
+    "check-all": "bun run type-check && bun run format:check && bun run test",
+    "cy:open": "bun run test:install && cypress open",
+    "cy:run": "bun run test:install && cypress run --component",
+    "cy:test": "bun run test:install && cypress run --component --reporter spec",
+    "cypress:component": "bun run test:install && cypress run --component",
+    "cypress:e2e": "bun run test:install && cypress run --e2e",
+    "cypress:open": "bun run test:install && cypress open",
+    "build:watch": "bun run build.ts --watch"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "b165ad83e5f7a21bc1edbd83374ca087e3cd6b33"
+}
