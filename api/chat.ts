@@ -1,21 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-// Direct import with proper error handling for Vercel + local dev
-let executeSwap: any = null;
-
-async function loadSwapUtils() {
-  if (!executeSwap) {
-    try {
-      const swapModule = await import("./swap-utils");
-      executeSwap = swapModule.executeSwap;
-      console.log('[CHAT] ✅ Successfully loaded swap-utils');
-    } catch (error) {
-      console.error('[CHAT] Failed to load swap-utils:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  }
-  return executeSwap;
-}
+import { executeSwap } from "./swap-utils.js";
 
 // Helper function to get balance via JSON-RPC directly
 async function getBalanceViajsonRpc(publicKey: string, rpcUrl: string): Promise<number> {
@@ -295,11 +279,8 @@ Please try again.`;
 
     // Execute the swap
     try {
-      console.log(`[CHAT] Loading swap utils...`);
-      const swapExecutor = await loadSwapUtils();
-      
       console.log(`[CHAT] Calling executeSwap with: ${fromToken} -> ${toToken}, amount: ${amount}, wallet: ${walletAddress.substring(0, 8)}...`);
-      const result = await swapExecutor(fromToken, toToken, amount, walletAddress, swapMode);
+      const result = await executeSwap(fromToken, toToken, amount, walletAddress, swapMode);
       
       if (!result) {
         return `❌ Swap failed: No result returned from swap function`;
