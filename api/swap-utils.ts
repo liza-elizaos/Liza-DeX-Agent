@@ -1,5 +1,9 @@
 import { Connection, PublicKey, Keypair, Transaction, VersionedTransaction, TransactionInstruction } from '@solana/web3.js';
 import bs58 from 'bs58';
+// Token program id (Tokenkeg) used for parsed token accounts
+const TOKEN_PROGRAM_ID_PUBKEY = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+// Metaplex Token Metadata program id
+const METAPLEX_METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 // Helper function to safely extract error message
 function getErrorMessage(error: unknown): string {
@@ -88,6 +92,15 @@ function resolveTokenAddress(token: string): string {
       return cleanedToken;
     }
   }
+
+  // Heuristic: strip common 'pump' suffix if present (e.g., user pasted "...Tpump")
+  if (originalToken.toLowerCase().endsWith('pump')) {
+    const withoutPump = originalToken.slice(0, -4).trim();
+    if (base58Regex.test(withoutPump)) {
+      console.log(`[TOKEN] Stripped 'pump' suffix and found valid address: ${withoutPump}`);
+      return withoutPump;
+    }
+  }
   
   // Check if it looks like base58 but wrong length
   const looseBase58Regex = /^[1-9A-HJNPZa-km-z]+$/;
@@ -143,6 +156,114 @@ async function searchJupiterTokenList(searchTerm: string): Promise<string | null
   } catch (error) {
     const msg = getErrorMessage(error);
     console.warn(`[SWAP] Token list lookup error: ${msg}`);
+    return null;
+  }
+}
+
+// Wallet-scan fallback: if a token string isn't resolvable, try to find a mint
+// in the user's token accounts that matches the provided token string.
+async function findMintInWallet(tokenStr: string, walletAddress: string, connection: Connection): Promise<string | null> {
+  try {
+    console.log(`[SWAP] Attempting wallet-scan fallback for token: ${tokenStr} using wallet: ${walletAddress}`);
+    const owner = new PublicKey(walletAddress);
+    const programId = new PublicKey(TOKEN_PROGRAM_ID_PUBKEY);
+    const resp = await connection.getParsedTokenAccountsByOwner(owner, { programId });
+    if (!resp || !resp.value || resp.value.length === 0) {
+      console.log('[SWAP] No token accounts found for wallet');
+      return null;
+    }
+
+    const cleaned = tokenStr.trim();
+    for (const acc of resp.value) {
+      try {
+        const info: any = acc.account.data.parsed?.info;
+        const mint = info?.mint;
+        if (!mint) continue;
+
+        // Direct containment check: user-provided string contains mint
+        if (cleaned.includes(mint)) {
+          console.log(`[SWAP] Wallet-scan matched mint via containment: ${mint}`);
+          return mint;
+        }
+
+        // Prefix/similarity heuristics: check first 8 chars
+        const prefix = mint.slice(0, 8).toLowerCase();
+        if (cleaned.toLowerCase().includes(prefix) || prefix.includes(cleaned.toLowerCase().slice(0, Math.min(8, cleaned.length)))) {
+          console.log(`[SWAP] Wallet-scan matched mint via prefix heuristic: ${mint}`);
+          return mint;
+        }
+      } catch (e) {
+        // ignore per-account errors
+      }
+    }
+
+    console.log('[SWAP] Wallet-scan did not find a matching mint');
+    return null;
+  } catch (error) {
+    console.warn('[SWAP] Wallet-scan fallback error:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+// Get the balance of a specific token in a wallet
+async function getTokenBalance(mint: string, walletAddress: string, connection: Connection): Promise<number | null> {
+  try {
+    console.log(`[SWAP] Fetching balance for token ${mint} in wallet ${walletAddress}`);
+    const owner = new PublicKey(walletAddress);
+    const tokenMint = new PublicKey(mint);
+    const programId = new PublicKey(TOKEN_PROGRAM_ID_PUBKEY);
+    
+    // Get all token accounts for this wallet filtered by mint
+    const resp = await connection.getParsedTokenAccountsByOwner(owner, { mint: tokenMint });
+    
+    if (!resp || !resp.value || resp.value.length === 0) {
+      console.log(`[SWAP] No token accounts found for mint ${mint}`);
+      return null;
+    }
+    
+    // Sum up all token accounts for this mint (user might have multiple accounts)
+    let totalBalance = 0;
+    for (const acc of resp.value) {
+      try {
+        const info: any = acc.account.data.parsed?.info;
+        const uiAmount = info?.tokenAmount?.uiAmount || 0;
+        totalBalance += uiAmount;
+        console.log(`[SWAP] Token account balance: ${uiAmount} (total so far: ${totalBalance})`);
+      } catch (e) {
+        console.warn('[SWAP] Error parsing token account:', e);
+      }
+    }
+    
+    console.log(`[SWAP] Total token balance for ${mint}: ${totalBalance}`);
+    return totalBalance;
+  } catch (error) {
+    console.warn('[SWAP] Error fetching token balance:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+// Fetch Metaplex on-chain metadata for a mint and return {name,symbol,uri}
+async function fetchMetaplexMetadata(mint: string, connection: Connection): Promise<{ name?: string; symbol?: string; uri?: string } | null> {
+  try {
+    const mintPub = new PublicKey(mint);
+    const metaProgramId = new PublicKey(METAPLEX_METADATA_PROGRAM_ID);
+    const [pda] = await PublicKey.findProgramAddress(
+      [Buffer.from('metadata'), metaProgramId.toBuffer(), mintPub.toBuffer()],
+      metaProgramId
+    );
+    const acct = await connection.getAccountInfo(pda);
+    if (!acct || !acct.data) return null;
+    const data = acct.data;
+    // Metaplex metadata layout: key(1) + updateAuthority(32) + mint(32) + name(32) + symbol(10) + uri(200)
+    if (data.length < 1 + 32 + 32 + 32 + 10 + 200) {
+      // still attempt to read available fields
+    }
+    const name = data.slice(1 + 32 + 32, 1 + 32 + 32 + 32).toString('utf8').replace(/\0/g, '').trim();
+    const symbol = data.slice(1 + 32 + 32 + 32, 1 + 32 + 32 + 32 + 10).toString('utf8').replace(/\0/g, '').trim();
+    const uri = data.slice(1 + 32 + 32 + 32 + 10, 1 + 32 + 32 + 32 + 10 + 200).toString('utf8').replace(/\0/g, '').trim();
+    return { name: name || undefined, symbol: symbol || undefined, uri: uri || undefined };
+  } catch (error) {
+    console.warn('[SWAP] Metaplex metadata fetch error:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -208,11 +329,21 @@ export async function executeSwap(
 
     // Validate resolved addresses and try Jupiter token list if invalid
     const validBase58Regex = /^[1-9A-HJNPZa-km-z]{43,44}$/;
-    console.log(`[SWAP] Validating inputMint: "${inputMint}" (length: ${inputMint.length}, fromKnown: ${inputFromKnown})`);
-    console.log(`[SWAP] Validating outputMint: "${outputMint}" (length: ${outputMint.length}, fromKnown: ${outputFromKnown})`);
-    
-    // Skip validation if came from KNOWN_TOKENS (we trust it)
-    if (!inputFromKnown && !validBase58Regex.test(inputMint)) {
+    console.log(`[SWAP] Validating inputMint: "${inputMint}" (len:${inputMint.length}, fromKnown:${inputFromKnown})`);
+    console.log(`[SWAP] Validating outputMint: "${outputMint}" (len:${outputMint.length}, fromKnown:${outputFromKnown})`);
+
+    // Helper to check if a string can be used as a PublicKey
+    function isPublicKeyLike(str: string): boolean {
+      try {
+        const p = new PublicKey(str);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+      // Skip validation if came from KNOWN_TOKENS (we trust it)
+      if (!inputFromKnown && !validBase58Regex.test(inputMint) && !isPublicKeyLike(inputMint)) {
       // Check if it's marked as invalid length
       if (inputMint.startsWith('INVALID_LENGTH:')) {
         const invalidAddr = inputMint.replace('INVALID_LENGTH:', '');
@@ -228,10 +359,39 @@ export async function executeSwap(
       if (jupiterMatch) {
         inputMint = jupiterMatch;
         console.log(`[SWAP] Found via Jupiter: ${inputMint}`);
+      } else {
+        // If the token string can be interpreted as a PublicKey, use it directly
+        if (isPublicKeyLike(inputMint)) {
+          console.log(`[SWAP] Input appears to be a PublicKey despite regex mismatch: ${inputMint}`);
+        } else if (walletAddress) {
+          // Try wallet-scan fallback for input token
+          const walletFound = await findMintInWallet(fromTokenContract, walletAddress, connection);
+          if (walletFound) {
+            inputMint = walletFound;
+            console.log(`[SWAP] Found input mint via wallet-scan: ${inputMint}`);
+          } else {
+            // Try Metaplex metadata scan on all wallet token mints
+            const resp = await connection.getParsedTokenAccountsByOwner(new PublicKey(walletAddress), { programId: new PublicKey(TOKEN_PROGRAM_ID_PUBKEY) });
+            for (const acc of resp.value) {
+              try {
+                const mint = acc.account.data.parsed?.info?.mint;
+                if (!mint) continue;
+                const md = await fetchMetaplexMetadata(mint, connection);
+                if (!md) continue;
+                const searchLower = fromTokenContract.toLowerCase();
+                if ((md.symbol && md.symbol.toLowerCase().includes(searchLower)) || (md.name && md.name.toLowerCase().includes(searchLower))) {
+                  inputMint = mint;
+                  console.log(`[SWAP] Found input mint via Metaplex metadata: ${mint} (${md.symbol}/${md.name})`);
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+        }
       }
     }
 
-    if (!outputFromKnown && !validBase58Regex.test(outputMint)) {
+      if (!outputFromKnown && !validBase58Regex.test(outputMint) && !isPublicKeyLike(outputMint)) {
       // Check if it's marked as invalid length
       if (outputMint.startsWith('INVALID_LENGTH:')) {
         const invalidAddr = outputMint.replace('INVALID_LENGTH:', '');
@@ -247,12 +407,38 @@ export async function executeSwap(
       if (jupiterMatch) {
         outputMint = jupiterMatch;
         console.log(`[SWAP] Found via Jupiter: ${outputMint}`);
+      } else {
+        if (isPublicKeyLike(outputMint)) {
+          console.log(`[SWAP] Output appears to be a PublicKey despite regex mismatch: ${outputMint}`);
+        } else if (walletAddress) {
+          const walletFound = await findMintInWallet(toTokenContract, walletAddress, connection);
+          if (walletFound) {
+            outputMint = walletFound;
+            console.log(`[SWAP] Found output mint via wallet-scan: ${outputMint}`);
+          } else {
+            const resp = await connection.getParsedTokenAccountsByOwner(new PublicKey(walletAddress), { programId: new PublicKey(TOKEN_PROGRAM_ID_PUBKEY) });
+            for (const acc of resp.value) {
+              try {
+                const mint = acc.account.data.parsed?.info?.mint;
+                if (!mint) continue;
+                const md = await fetchMetaplexMetadata(mint, connection);
+                if (!md) continue;
+                const searchLower = toTokenContract.toLowerCase();
+                if ((md.symbol && md.symbol.toLowerCase().includes(searchLower)) || (md.name && md.name.toLowerCase().includes(searchLower))) {
+                  outputMint = mint;
+                  console.log(`[SWAP] Found output mint via Metaplex metadata: ${mint} (${md.symbol}/${md.name})`);
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+        }
       }
     }
 
     // Final validation: addresses must be valid base58 and correct length
     // Skip validation for known tokens (we trust them)
-    if (!inputFromKnown && !validBase58Regex.test(inputMint)) {
+    if (!inputFromKnown && !validBase58Regex.test(inputMint) && !isPublicKeyLike(inputMint)) {
       console.error(`[SWAP] Input validation failed for: "${inputMint}"`);
       return {
         success: false,
@@ -261,7 +447,7 @@ export async function executeSwap(
       };
     }
 
-    if (!outputFromKnown && !validBase58Regex.test(outputMint)) {
+    if (!outputFromKnown && !validBase58Regex.test(outputMint) && !isPublicKeyLike(outputMint)) {
       console.error(`[SWAP] Output validation failed for: "${outputMint}"`);
       return {
         success: false,
@@ -282,6 +468,18 @@ export async function executeSwap(
         throw new Error('Address not on Solana curve');
       }
     } catch (error) {
+      console.log(`[SWAP] Wallet validation error:`, error);
+      
+      // Better error message for non-Solana addresses
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('Solana') || errorMsg.includes('on curve')) {
+        return {
+          success: false,
+          error: `Non-Solana wallet: ${walletAddress}`,
+          message: `⚠️ Network Mismatch\n\n**Wallet Address:** ${walletAddress}\n\nThis wallet address appears to be from a different blockchain (e.g., Jeju Network, Ethereum, etc.). \n\nJupiter swaps are only available on **Solana mainnet**.\n\nPlease:\n1. Switch to Solana network in your wallet\n2. Or connect a Solana wallet\n3. Then try the swap again`,
+        };
+      }
+      
       return {
         success: false,
         error: `Invalid wallet address: ${walletAddress}`,
@@ -294,23 +492,38 @@ export async function executeSwap(
       // Fetch the actual balance and use it
       try {
         console.log('[SWAP] "all" keyword detected - fetching wallet balance...');
-        const balance = await connection.getBalance(userPublicKey);
-        const balanceInSOL = balance / 1e9;
-        console.log(`[SWAP] Wallet balance: ${balanceInSOL} SOL (${balance} lamports)`);
         
-        // For SOL swaps, use all balance minus fees (keep ~0.01 SOL for fees)
+        // Check if input is SOL
         if (fromTokenContract.toLowerCase() === 'sol' || inputMint === KNOWN_TOKENS['sol']) {
+          // For SOL, get native SOL balance
+          const balance = await connection.getBalance(userPublicKey);
+          const balanceInSOL = balance / 1e9;
+          console.log(`[SWAP] Wallet balance: ${balanceInSOL} SOL (${balance} lamports)`);
+          
+          // Use all balance minus fees (keep ~0.01 SOL for fees)
           amount = Math.max(0.001, balanceInSOL - 0.01);
           console.log(`[SWAP] Using all SOL balance minus fees: ${amount} SOL`);
         } else {
-          // For token swaps, we'll need to fetch the token balance
-          // For now, this would require additional SPL token account lookup
-          // Return an error asking for explicit amount
-          return {
-            success: false,
-            error: 'Cannot determine token balance',
-            message: `❌ "all" keyword not supported for token balances yet\n\nFor token swaps, please specify an amount explicitly.\n\nExample: "swap 100 ${fromTokenContract} for SOL"`,
-          };
+          // For token swaps, fetch the token balance from wallet
+          const tokenBalance = await getTokenBalance(inputMint, walletAddress, connection);
+          if (tokenBalance === null || tokenBalance === undefined) {
+            return {
+              success: false,
+              error: 'Cannot determine token balance',
+              message: `❌ Token Balance Not Found\n\n**Token:** ${fromTokenContract}\n**Mint:** ${inputMint}\n\nYou don't have any balance of this token in your wallet. Please check the token address or provide an explicit amount.`,
+            };
+          }
+          
+          if (tokenBalance === 0) {
+            return {
+              success: false,
+              error: 'Token balance is zero',
+              message: `❌ Zero Token Balance\n\n**Token:** ${fromTokenContract}\n**Mint:** ${inputMint}\n\nYour wallet has 0 balance of this token. Please acquire some tokens first or provide a different token.`,
+            };
+          }
+          
+          amount = tokenBalance;
+          console.log(`[SWAP] Using all token balance: ${amount} ${fromTokenContract}`);
         }
       } catch (error) {
         console.error('[SWAP] Error fetching balance:', error);

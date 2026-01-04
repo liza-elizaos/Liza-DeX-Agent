@@ -1,5 +1,112 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { executeSwap } from "./swap-utils.js";
+import {
+  handlePolymarketQuery,
+  generatePolymarketResponse,
+  extractOddsFromMessage,
+  formatMarketForDisplay,
+  getMarketOdds,
+  searchPolymarketMarkets,
+} from "./polymarket.js";
+
+// Liza Character Definition
+const LIZA_CHARACTER = {
+  name: "Liza",
+  role: "Decentralized Infrastructure Architect",
+  bio: "Autonomous decentralized agent built on ElizaOS for Jeju network. Manages wallets, DeFi strategies, and blockchain operations with surgical precision.",
+  personality: "Technical, data-driven, transparent, security-conscious",
+  network: "Solana Mainnet / Jeju",
+};
+
+// System prompt for OpenRouter
+const SYSTEM_PROMPT = `You are Liza, an autonomous decentralized infrastructure agent built on ElizaOS for the Jeju network.
+
+CHARACTER TRAITS:
+- Name: Liza
+- Role: Decentralized Infrastructure Architect
+- Network: Solana Mainnet / Jeju
+- Expertise: Wallet management, DeFi strategies, on-chain identity, blockchain risk assessment
+
+PERSONALITY:
+- Speak like a technical architect with deep blockchain knowledge
+- Data-driven and analytical
+- Never give financial advice—only risk analysis and data interpretation
+- Use on-chain metrics and probability-based language
+- Maintain professional confidence without arrogance
+- Always focus on transparency and auditability
+
+CAPABILITIES:
+1. Wallet Management - Check balances, manage keys, track holdings
+2. DeFi Strategies - Analyze yield, explain farming, grid trading, DCA
+3. Token Swaps - Execute trades, manage orders, track execution
+4. Price Monitoring - Real-time data, historical analysis, market trends
+5. Risk Assessment - Contract audits, security analysis, trust metrics
+6. Order Management - Create, track, cancel orders
+7. Trading Strategies - DCA, Momentum, Grid trading
+
+TONE:
+- Professional but approachable
+- Use technical language accurately
+- Explain complex concepts clearly
+- Frame decisions through risk/benefit lens
+- Always mention transparency and auditability
+- Combine blockchain metrics with practical insights
+
+REMEMBER:
+- Never make promises about returns
+- Always explain the risks
+- Provide data to back up claims
+- Offer verification paths and audit trails
+- Focus on decentralization and user control`;
+
+// Helper to call OpenRouter API
+async function callOpenRouter(messages: Array<{ role: string; content: string }>): Promise<string> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const model = (process.env.OPENROUTER_MODEL || "mistralai/devstral-2512:free").trim();
+
+  if (!apiKey) {
+    console.error("[OpenRouter] ❌ No API key configured");
+    throw new Error("OpenRouter API key not configured");
+  }
+
+  console.log(`[OpenRouter] Calling ${model} with ${messages.length} messages`);
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://localhost",
+        "X-Title": "Liza DeFi Agent",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...messages,
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`[OpenRouter] ❌ API error: ${response.status}`, errorData);
+      throw new Error(`OpenRouter API error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as any;
+    const reply = data.choices?.[0]?.message?.content || "No response generated";
+
+    console.log(`[OpenRouter] ✅ Response received (${reply.length} chars)`);
+    return reply;
+  } catch (error) {
+    console.error("[OpenRouter] Exception:", error);
+    throw error;
+  }
+}
 
 // Helper function to get balance via JSON-RPC directly
 async function getBalanceViajsonRpc(publicKey: string, rpcUrl: string): Promise<number> {
@@ -68,369 +175,398 @@ interface ChatResponse {
   timestamp: string;
 }
 
-// Smart chat response handler with actual API calls
+// Enhanced chat response handler with OpenRouter AI + actual API calls
 async function generateResponse(
   message: string,
   context: string = "trading",
   config?: ChatRequest["config"],
   walletPublicKey?: string
-): Promise<string> {
+): Promise<any> {
   const msg = message.toLowerCase().trim();
-  
-  console.log('[CHAT] Processing message:', { original: message, lowercase: msg });
-  
-  // Balance/Wallet queries - Check FIRST
+
+  console.log("[CHAT] Processing message:", { original: message, lowercase: msg });
+
+  // ==================== BALANCE/WALLET CHECK ====================
   const hasBalance = msg.includes("balance");
   const hasWallet = msg.includes("wallet");
   const hasCheck = msg.includes("check");
-  
-  console.log('[CHAT] Keyword check:', { hasBalance, hasWallet, hasCheck });
-  
+
   if (hasBalance || hasWallet || hasCheck) {
-    console.log('[CHAT] ✅ Detected balance/wallet/check query');
-    
-    // Priority: walletPublicKey from request > extract from message > error
+    console.log("[CHAT] ✅ Detected balance/wallet/check query");
+
     let userPublicKey = walletPublicKey || null;
-    
-    // If not in request, try to extract from message
+
     if (!userPublicKey) {
-      // Format: "check balance of 7k..." or "my balance 7k..."
-      // Solana addresses are 43-44 characters in base58
-      // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz (no 0, O, I, l)
-      const addressMatch = message.match(/([1-9A-HJ-NP-Za-km-z]{43,44})/); // Solana address format (43-44 chars)
+      const addressMatch = message.match(/([1-9A-HJ-NP-Za-km-z]{43,44})/);
       userPublicKey = addressMatch ? addressMatch[0] : null;
     }
-    
-    console.log('[CHAT] Using public key:', userPublicKey, 'from:', walletPublicKey ? 'request' : 'message');
-    
-    if (!userPublicKey) {
-      return `WALLET BALANCE CHECK
-━━━━━━━━━━━━━━━━━━━━━━━━
 
-To check your wallet balance, please provide your Solana public key.
+    console.log("[CHAT] Using public key:", userPublicKey);
+
+    if (!userPublicKey) {
+      // Use OpenRouter to generate response about wallet check
+      try {
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `The user asked to check wallet balance but didn't provide a public key. Generate a helpful response explaining how to provide their Solana public key or connect Phantom wallet.`,
+          },
+        ]);
+        return { response: aiResponse };
+      } catch (error) {
+        console.error("[CHAT] Error getting AI response:", error);
+        return {
+          response: `To check your wallet balance, please provide your Solana public key.
 
 Examples:
 • check balance 7kDH3pzNUH3Jx1oTeWjGHExKY89K5ZzQLVB3iw5dGLP
-• balance of 7kDH3pzNUH3Jx1oTeWjGHExKY89K5ZzQLVB3iw5dGLP
 • wallet 7kDH3pzNUH3Jx1oTeWjGHExKY89K5ZzQLVB3iw5dGLP
 
-Or connect your Phantom wallet and we'll fetch it automatically.`;
-    }
-    
-    // Call balance API with user's public key
-    try {
-      console.log('[CHAT] Fetching balance for:', userPublicKey);
-      
-      // Get RPC URL - handle both local and Vercel environments
-      let rpcUrl = process.env.SOLANA_RPC_URL;
-      console.log('[CHAT] ENV SOLANA_RPC_URL:', rpcUrl ? 'SET' : 'NOT SET');
-      
-      if (!rpcUrl) {
-        console.warn('[CHAT] ⚠️ SOLANA_RPC_URL not set, using default');
-        rpcUrl = 'https://api.mainnet-beta.solana.com';
+Or connect your Phantom wallet and I'll fetch it automatically.`,
+        };
       }
-      
-      console.log('[CHAT] Using RPC URL:', rpcUrl.substring(0, 50) + '...');
-      
-      // Validate public key format (base58, 43-44 chars)
+    }
+
+    try {
+      let rpcUrl = process.env.SOLANA_RPC_URL;
+      console.log("[CHAT] ENV SOLANA_RPC_URL:", rpcUrl ? "SET" : "NOT SET");
+
+      if (!rpcUrl) {
+        console.warn("[CHAT] ⚠️ SOLANA_RPC_URL not set, using default");
+        rpcUrl = "https://api.mainnet-beta.solana.com";
+      }
+
       if (!/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(userPublicKey)) {
-        return `WALLET BALANCE - INVALID KEY
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-The provided public key format is invalid:
-Address: ${userPublicKey}
-
-Solana addresses must be 43-44 characters in base58 format.`;
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `User provided an invalid Solana public key: ${userPublicKey}. Generate a response explaining the correct format.`,
+          },
+        ]);
+        return { response: aiResponse };
       }
 
       try {
-        // Use JSON-RPC directly instead of Connection class
         const balanceLamports = await getBalanceViajsonRpc(userPublicKey, rpcUrl);
         const balanceSOL = balanceLamports / 1e9;
 
-        console.log('[CHAT] Balance fetched successfully:', { balanceSOL, userPublicKey });
-        
-        return `WALLET BALANCE
-━━━━━━━━━━━━━━━━━━━━━━━━
+        console.log("[CHAT] Balance fetched successfully:", { balanceSOL, userPublicKey });
 
-Wallet: ${userPublicKey.slice(0, 8)}...${userPublicKey.slice(-8)}
-Balance: ${parseFloat(balanceSOL.toFixed(9))} SOL
-Network: ${process.env.SOLANA_NETWORK || 'mainnet'}
+        // Use OpenRouter to format the balance response
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `Format a response for a user's wallet balance check:
+- Wallet: ${userPublicKey}
+- Balance: ${balanceSOL} SOL
+- Network: ${process.env.SOLANA_NETWORK || "mainnet"}
 
-[Real-time data from blockchain]`;
+Make it professional but concise.`,
+          },
+        ]);
+        return { response: aiResponse };
       } catch (err: any) {
         const errorMsg = err?.message || String(err);
-        console.error('[CHAT] Balance check error:', errorMsg);
-        
-        // Handle timeout
-        if (errorMsg.includes('timed out')) {
-          return `WALLET BALANCE - TIMEOUT
-━━━━━━━━━━━━━━━━━━━━━━━━
+        console.error("[CHAT] Balance check error:", errorMsg);
 
-The balance check timed out. This usually means:
-• RPC endpoint is slow
-• Network connection issue
-• Solana network is congested
-
-Try again in a few moments.`;
+        // Use OpenRouter to generate error response
+        try {
+          const aiResponse = await callOpenRouter([
+            {
+              role: "user",
+              content: `The wallet balance check failed with error: ${errorMsg}. Generate a helpful response explaining what went wrong and what to do.`,
+            },
+          ]);
+          return { response: aiResponse };
+        } catch {
+          return { response: `Balance check failed: ${errorMsg}\n\nPlease try again or verify the wallet address is correct.` };
         }
-        
-        return `WALLET BALANCE - ERROR
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-Error: ${errorMsg}
-Address: ${userPublicKey}
-
-Please verify the address is correct and try again.`;
       }
     } catch (error) {
-      console.error('[CHAT] Balance exception:', error);
-      return `WALLET BALANCE - ERROR
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-Connection Error: ${error instanceof Error ? error.message : String(error)}
-
-Please try again.`;
+      console.error("[CHAT] Balance exception:", error);
+      return { response: `Connection error: ${error instanceof Error ? error.message : String(error)}\n\nPlease try again.` };
     }
   }
 
-  // Swap/Trade queries - Actually execute the swap
+  // ==================== POLYMARKET PREDICTION MARKETS ====================
+  const hasPolymarket = msg.includes("pm") || msg.includes("polymarket") || msg.includes("poly");
+
+  if (hasPolymarket) {
+    console.log("[CHAT] 🎯 Polymarket prediction market query detected");
+
+    try {
+      // Extract market query - remove "pm" or "polymarket" prefix
+      let marketQuery = message
+        .replace(/^(pm|polymarket)\s+/i, "")
+        .replace(/^poly\s+/i, "")
+        .trim();
+
+      if (!marketQuery) {
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `User wants to check Polymarket prediction markets but didn't specify which market. Examples: "PM presidential election winner 2028", "PM will Bitcoin reach 100k", "PM Tesla stock price above 300". Ask them what market they want to check.`,
+          },
+        ]);
+        return { response: aiResponse };
+      }
+
+      console.log(`[CHAT] Searching for market: "${marketQuery}"`);
+
+      // Search for real market data on Polymarket
+      const marketData = await getMarketOdds(marketQuery);
+
+      if (!marketData || !marketData.market) {
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `User searched for Polymarket market: "${marketQuery}"\n\nNo matching market found on Polymarket. Suggest similar markets or help them refine their search. For example, try "presidential election 2028", "BTC price prediction", "US election", etc.`,
+          },
+        ]);
+        return { response: aiResponse };
+      }
+
+      // Format the market data for display
+      let marketDisplay = `📊 **Found Market: ${marketData.bestMatch}**\n\n`;
+      marketDisplay += `**Current Odds:**\n`;
+      
+      for (const outcome of marketData.outcomes) {
+        marketDisplay += `• ${outcome.name}: ${outcome.probability} (Price: $${outcome.price.toFixed(4)})\n`;
+      }
+
+      // Generate AI analysis with real market data
+      const aiAnalysis = await callOpenRouter([
+        {
+          role: "user",
+          content: `User asked about this Polymarket prediction market with real live odds:\n\nMarket: "${marketData.bestMatch}"\nCurrent Live Odds:\n${marketData.outcomes.map(o => `- ${o.name}: ${o.probability} (${(o.price * 100).toFixed(1)}¢)`).join('\n')}\n\nProvide a brief analysis:\n1. What do these odds suggest about the likely outcome?\n2. What's the most probable scenario based on current market sentiment?\n3. Any notable risks or considerations?\n\nBe concise and data-driven (2-3 sentences max).`,
+        },
+      ]);
+
+      return { response: `${marketDisplay}\n**Market Analysis:**\n${aiAnalysis}` };
+    } catch (error) {
+      console.error("[CHAT] Polymarket error:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return {
+        response: `Polymarket analysis error: ${errorMsg}\n\nPlease try again with format: "polymarket 0.45 will BTC reach $100k"`,
+      };
+    }
+  }
+
+  // ==================== SWAP/TRADE EXECUTION ====================
   if (msg.includes("swap") || msg.includes("trade") || msg.includes("exchange") || msg.includes("buy")) {
-    console.log('[CHAT] Swap request detected, parsing parameters...');
-    
-    // Parse swap parameters from message
-    // Use original message (preserve token case) and rely on case-insensitive regex
+    console.log("[CHAT] Swap request detected, parsing parameters...");
+
     const text = message;
-    
-    // Updated patterns to support contract addresses (43-44 char base58 strings)
-    // Base58 alphabet for Solana: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
-    const base58Pattern = '[1-9A-HJNPZa-km-z]{43,44}';
-    // Token can be: word (ticker), or base58 address, or word with 'pump' suffix (pump.fun tokens)
+    const base58Pattern = "[1-9A-HJNPZa-km-z]{43,44}";
     const tokenPattern = `(?:[a-z0-9_]+|${base58Pattern})`;
-    
-    // Pattern 1: "buy 100 TOKEN from SOL" or "buy TOKEN from SOL" (supports contract addresses)
-    const buyMatch = text.match(new RegExp(`buy\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:from|with)\\s+(${tokenPattern})`, 'i'));
-    
-    // Pattern 2: "swap 100 SOL for TOKEN" or "swap SOL for TOKEN" (supports contract addresses and "all")
-    const swapMatch = text.match(new RegExp(`swap\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:to|for)\\s+(${tokenPattern})`, 'i'));
-    
-    // Pattern 3: "exchange 100 TOKEN1 for TOKEN2" (supports contract addresses and "all")
-    const exchangeMatch = text.match(new RegExp(`exchange\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:for|to)\\s+(${tokenPattern})`, 'i'));
-    
+
+    const buyMatch = text.match(new RegExp(`buy\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:from|with)\\s+(${tokenPattern})`, "i"));
+    const swapMatch = text.match(new RegExp(`swap\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:to|for)\\s+(${tokenPattern})`, "i"));
+    const exchangeMatch = text.match(new RegExp(`exchange\\s+(?:([\\d.]+|all)\\s+)?(${tokenPattern})\\s+(?:for|to)\\s+(${tokenPattern})`, "i"));
+
     let amount: number = 0;
-    let amountStr: string = '';
-    let fromToken: string = '';
-    let toToken: string = '';
-    let swapMode: 'ExactIn' | 'ExactOut' = 'ExactIn';
+    let amountStr: string = "";
+    let fromToken: string = "";
+    let toToken: string = "";
+    let swapMode: "ExactIn" | "ExactOut" = "ExactIn";
     let useAllBalance: boolean = false;
 
     if (buyMatch) {
-      amountStr = buyMatch[1] || '1';
+      amountStr = buyMatch[1] || "1";
       toToken = buyMatch[2];
       fromToken = buyMatch[3];
-      swapMode = 'ExactOut';
+      swapMode = "ExactOut";
       console.log(`[CHAT] Buy detected: ${amountStr} ${toToken} from ${fromToken} (Exact-Out)`);
     } else if (swapMatch) {
-      amountStr = swapMatch[1] || '1';
+      amountStr = swapMatch[1] || "1";
       fromToken = swapMatch[2];
       toToken = swapMatch[3];
-      swapMode = 'ExactIn';
+      swapMode = "ExactIn";
       console.log(`[CHAT] Swap detected: ${amountStr} ${fromToken} to ${toToken} (Exact-In)`);
     } else if (exchangeMatch) {
-      amountStr = exchangeMatch[1] || '1';
+      amountStr = exchangeMatch[1] || "1";
       fromToken = exchangeMatch[2];
       toToken = exchangeMatch[3];
-      swapMode = 'ExactIn';
+      swapMode = "ExactIn";
       console.log(`[CHAT] Exchange detected: ${amountStr} ${fromToken} for ${toToken} (Exact-In)`);
     } else {
-      return `❌ Could not parse swap request\n\n**Supported formats:**\n- "buy 100 TOKEN from SOL" or "buy TOKEN from SOL"\n- "swap 100 SOL for TOKEN" or "swap SOL for TOKEN"\n- "swap all TOKEN for SOL" (use all balance)\n- "exchange 50 TOKEN1 to TOKEN2" or "exchange TOKEN1 to TOKEN2"\n\n**Token identifiers:**\n- Token ticker: "BONK", "USDC", "SOL"\n- Contract address: full 43-44 character mint address\n\n**Examples:**\n- "buy 100 BONK from SOL"\n- "swap 1 SOL for USDC"\n- "swap all HdZh1mUvCVJzHfTFaJJxZJFENhiFAkyiXLA5iZZTpump for SOL"`;
+      // Use OpenRouter for parsing error
+      try {
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `User: "${message}"\n\nThey're trying to do a swap but the format wasn't recognized. Generate a helpful response with examples of correct swap formats.`,
+          },
+        ]);
+        return { response: aiResponse };
+      } catch {
+        return { response: `I understand you want to swap tokens. Supported formats:\n- "buy 100 BONK from SOL"\n- "swap 1 SOL for USDC"\n- "swap all TOKEN for SOL"` };
+      }
     }
 
-    // Handle "all" keyword to use wallet balance
-    if (amountStr.toLowerCase() === 'all') {
+    if (amountStr.toLowerCase() === "all") {
       useAllBalance = true;
-      amount = -1; // Special marker for "use all balance"
+      amount = -1;
       console.log('[CHAT] "all" keyword detected - will use entire wallet balance');
     } else {
       amount = parseFloat(amountStr);
     }
 
     if (!useAllBalance && (!amount || amount <= 0)) {
-      return `❌ Invalid amount: ${amountStr}\n\nAmount must be greater than 0 or use "all" keyword`;
+      return { response: `Invalid amount: ${amountStr}\n\nAmount must be greater than 0 or use "all" keyword` };
     }
 
     if (!fromToken || !toToken) {
-      return `❌ Invalid tokens\n\nFrom: ${fromToken}, To: ${toToken}\n\nAccepted formats: token name (e.g., BONK) or contract address (43-44 chars)`;
+      return { response: `Invalid tokens\n\nFrom: ${fromToken}, To: ${toToken}` };
     }
 
-    // Get wallet address - Priority: walletPublicKey from request > config > env variable
-    // If walletPublicKey is provided in request, use it (user's connected wallet)
-    // Otherwise fall back to config or env (server-side wallet)
-    let walletAddress: string | undefined = walletPublicKey;
+    // Get wallet address with comprehensive validation
+    // Priority: 
+    // 1. walletPublicKey from request (user's connected Phantom wallet)
+    // 2. Try to extract address from message
+    // 3. Fall back to server-side wallet if configured
     
-    // If no wallet from request, try config or env (for server-side operations)
-    if (!walletAddress) {
-      walletAddress = config?.privateKey 
-        ? (process.env.SOLANA_PUBLIC_KEY || undefined)
-        : (process.env.SOLANA_PUBLIC_KEY || undefined);
-    }
+    let walletAddress: string | undefined = walletPublicKey && walletPublicKey.trim() !== '' ? walletPublicKey.trim() : undefined;
     
-    // Validate wallet address - must be provided
-    if (!walletAddress) {
-      console.log('[CHAT] No wallet address found in request, config, or env');
-      return `❌ Wallet not connected\n\nPlease connect your Solana wallet to execute swaps.\n\nYour wallet address is required to perform token swaps. Connect your Phantom wallet in the frontend.`;
-    }
-    
-    // Validate it's a proper Solana address format (43-44 characters, base58)
-    const solanaAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
-    if (!solanaAddressRegex.test(walletAddress)) {
-      console.log('[CHAT] Invalid wallet address format:', walletAddress);
-      return `❌ Invalid wallet address format\n\nThe wallet address provided is not a valid Solana address.`;
-    }
-    
-    console.log(`[CHAT] Using wallet address: ${walletAddress.substring(0, 8)}...${walletAddress.substring(walletAddress.length - 8)} (from: ${walletPublicKey ? 'request' : 'config/env'})`);
-    
-    console.log(`[CHAT] Executing swap: ${useAllBalance ? 'ALL' : amount} ${fromToken} -> ${toToken} (${swapMode}) for wallet: ${walletAddress}`);
+    console.log("[CHAT] Swap wallet detection START:", {
+      walletPublicKeyParam: walletPublicKey && walletPublicKey.trim() ? `${walletPublicKey.substring(0, 8)}...` : "NOT PROVIDED / EMPTY",
+      messageLength: message.length,
+      hasConfig: !!config,
+    });
 
-    // Execute the swap
-    try {
-      console.log(`[CHAT] Calling executeSwap with: ${fromToken} -> ${toToken}, amount: ${amount}, useAllBalance: ${useAllBalance}, wallet: ${walletAddress.substring(0, 8)}...`);
-      const result = await executeSwap(fromToken, toToken, amount, walletAddress, swapMode, useAllBalance);
-      
-      if (!result) {
-        return `❌ Swap failed: No result returned from swap function`;
-      }
-      
-      if (result.success) {
-        // If this is a pending_signature swap, return structured response with swap object
-        if (result.swap && result.swap.status === 'pending_signature') {
-          console.log('[CHAT] Returning pending_signature swap with transactionBase64');
-          // Store swap data in session context for the response
-          (globalThis as any).__lastSwapData = result.swap;
-          return JSON.stringify({
-            _type: 'swap_pending_signature',
-            message: result.message || '🔄 Swap Instructions Ready for Signing',
-            swap: result.swap,
-          });
-        }
-        // Regular server-signed swap
-        return result.message || `✅ Swap executed successfully!\n\n${amount} ${fromToken} -> ${result.txHash ? `Transaction: ${result.txHash}` : 'Completed'}`;
+    // Try to extract wallet address from message ONLY if not provided as parameter
+    console.log('[CHAT] [WALLET DETECTION STEP 1] walletPublicKey from request:', walletAddress ? `${walletAddress.substring(0, 8)}...` : 'NOT PROVIDED OR EMPTY');
+    
+    if (!walletAddress) {
+      console.log('[CHAT] [WALLET DETECTION STEP 2] Wallet parameter not provided, trying to extract from message...');
+      const addressMatch = message.match(/([1-9A-HJ-NP-Za-km-z]{43,44})/);
+      if (addressMatch) {
+        walletAddress = addressMatch[0];
+        console.log("[CHAT] [WALLET DETECTION STEP 2] ✅ Extracted wallet from message:", walletAddress.substring(0, 8) + "...");
       } else {
-        return result.message || `❌ Swap failed: ${result.error || 'Unknown error'}`;
+        console.log('[CHAT] [WALLET DETECTION STEP 2] ❌ Could not extract wallet from message');
+      }
+    } else {
+      console.log('[CHAT] [WALLET DETECTION STEP 2] ✅ Using wallet from request parameter:', walletAddress.substring(0, 8) + '...');
+    }
+
+    // If still no wallet and server has private key, use server wallet
+    if (!walletAddress && (config?.privateKey || process.env.SOLANA_PRIVATE_KEY)) {
+      walletAddress = process.env.SOLANA_PUBLIC_KEY || undefined;
+      console.log("[CHAT] [WALLET DETECTION STEP 3] Using server-side wallet for swap");
+    } else if (!walletAddress) {
+      console.log("[CHAT] [WALLET DETECTION STEP 3] ❌ No server-side wallet available");
+    }
+
+    if (!walletAddress) {
+      console.log("[CHAT] ❌ NO WALLET ADDRESS FOUND AT ALL");
+      console.log('[CHAT] walletPublicKey (from request):', walletPublicKey);
+      console.log('[CHAT] message:', message);
+      return { 
+        response: `Wallet not connected. Please connect your Solana wallet first using the wallet button, then try again.` 
+      };
+    }
+    
+    console.log("[CHAT] ✅ FINAL WALLET DETERMINED:", walletAddress.substring(0, 8) + "...");
+
+    // Accept multiple wallet address formats:
+    // 1. Solana addresses: 43-44 chars, base58
+    // 2. Jeju Network addresses: shorter format like 61iHTXhc
+    // 3. EVM addresses: 0x followed by hex
+    // 4. General: at least 20 chars (most chains use at least this)
+    const solanaMatch = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(walletAddress);
+    const evmMatch = /^0x[0-9a-fA-F]{40}$/.test(walletAddress);
+    const otherMatch = /^[a-zA-Z0-9]{10,}$/.test(walletAddress);
+    
+    // Accept all address formats (Solana, EVM, Jeju, etc)
+    const isValidAddress = solanaMatch || evmMatch || otherMatch;
+    
+    if (!isValidAddress) {
+      console.log("[CHAT] ❌ Invalid wallet address format:", walletAddress);
+      return { response: `Invalid wallet address format. Please provide a valid blockchain address.` };
+    }
+
+    // Warn if wallet is NOT Solana format (they might be on wrong network)
+    if (!solanaMatch && (msg.includes("swap") || msg.includes("trade"))) {
+      console.log("[CHAT] ⚠️  Non-Solana wallet detected for swap:", walletAddress.substring(0, 8) + "...");
+      
+      return {
+        response: `⚠️ **Wrong Blockchain Network Detected**\n\nYour wallet address (\`${walletAddress}\`) appears to be from a **different blockchain** (e.g., Jeju Network, Ethereum, etc.).\n\n🔄 **To use Jupiter swaps, you need a Solana wallet:**\n\n1. **Option A: Switch Networks in Your Wallet App**\n   • Open your wallet app\n   • Look for network/chain selector\n   • Switch to "Solana Mainnet"\n   • Refresh this page\n\n2. **Option B: Connect a Solana Wallet**\n   • If your wallet doesn't support Solana, install Phantom or another Solana wallet\n   • Transfer SOL to your Solana wallet\n   • Connect it here\n\n📚 **Learn More:**\n   • Phantom Wallet: https://phantom.app\n   • Solana Network: https://solana.com\n\nOnce you're on Solana mainnet, I'll help you execute the swap! 🚀`,
+      };
+    }
+
+    console.log(`[CHAT] Executing swap: ${useAllBalance ? "ALL" : amount} ${fromToken} -> ${toToken}`);
+
+    try {
+      const result = await executeSwap(fromToken, toToken, amount, walletAddress, swapMode, useAllBalance);
+
+      if (!result) {
+        return { response: `Swap failed: No result returned` };
+      }
+
+      if (result.success) {
+        if (result.swap && result.swap.status === "pending_signature") {
+          console.log("[CHAT] Returning pending_signature swap with transactionBase64");
+          (globalThis as any).__lastSwapData = result.swap;
+          return {
+            response: result.message || "🔄 Swap Instructions Ready for Signing",
+            swap: result.swap,
+          };
+        }
+        return { response: result.message || `✅ Swap executed successfully!` };
+      } else {
+        return { response: result.message || `❌ Swap failed: ${result.error || "Unknown error"}` };
       }
     } catch (error) {
-      console.error('[CHAT] Swap execution error:', error);
-      return `❌ Swap execution error: ${error instanceof Error ? error.message : String(error)}\n\nPlease try again or check your wallet connection.`;
+      console.error("[CHAT] Swap execution error:", error);
+      return { response: `Swap execution error: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 
-  // Help queries
-  if (msg.includes("help") || msg.includes("guide") || msg.includes("what can you")) {
-    return `LIZA - TRADING BOT
-━━━━━━━━━━━━━━━━━━━━━━━━
+  // ==================== GENERAL QUERIES - USE OPENROUTER AI ====================
+  console.log("[CHAT] General query - calling OpenRouter AI for message:", message.substring(0, 50));
 
-Available Commands:
-- "balance" - Get wallet balance
-- "swap" - Exchange tokens
-- "config" - View settings
-- "deploy" - Start trading bot
-- "audit" - Contract security check
-- "defi" - DeFi strategies
+  try {
+    const apiKeySet = process.env.OPENROUTER_API_KEY ? '✅' : '❌';
+    const modelVal = process.env.OPENROUTER_MODEL?.trim() || 'NOT SET';
+    console.log('[CHAT] About to call OpenRouter with:', {
+      apiKey: apiKeySet,
+      model: modelVal,
+    });
 
-APIs:
-/api/balance - Get SOL balance
-/api/swap - Execute token swap
-/api/chat - Send messages
+    const aiResponse = await callOpenRouter([
+      {
+        role: "user",
+        content: message,
+      },
+    ]);
 
-Connect your Phantom wallet to get started.`;
+    console.log("[CHAT] ✅ Got AI response from OpenRouter, length:", aiResponse.length);
+    return { response: aiResponse };
+  } catch (error) {
+    console.error("[CHAT] OpenRouter error:", error instanceof Error ? error.message : String(error));
+
+    // Fallback response - try again with retry
+    console.log("[CHAT] Attempting fallback response...");
+    try {
+      const fallbackResponse = await callOpenRouter([
+        {
+          role: "user",
+          content: "User asked: " + message + "\n\nProvide a helpful response as Liza, even if you need to acknowledge limitations.",
+        },
+      ]);
+      return { response: fallbackResponse };
+    } catch (fallbackError) {
+      console.error("[CHAT] Fallback also failed:", fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
+      return {
+        response: `I'm Liza, your autonomous trading agent. I can help with wallet checks, token swaps, DeFi strategies, and market analysis. 
+
+How can I assist you today?`,
+      };
+    }
   }
-
-  // Config queries
-  if (msg.includes("config") || msg.includes("settings")) {
-    return `CONFIGURATION
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-Bot: LIZA Trading Bot
-Max Buy: 0.2 SOL per trade
-Daily Cap: 1.0 SOL
-Min Liquidity: $5,000
-Min Holders: 100
-Dev Trust: 60%
-Auto-Approve: OFF
-Kill Switch: ON
-
-Ready to modify settings?`;
-  }
-
-  // Deploy queries
-  if (msg.includes("deploy") || msg.includes("start") || msg.includes("activate")) {
-    return `DEPLOYMENT
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-To deploy trading bot:
-1. Add Solana private key
-2. Configure parameters
-3. Set risk filters
-4. Enable safety controls
-5. Click Deploy
-
-Status: Ready to deploy`;
-  }
-
-  // Audit queries
-  if (msg.includes("audit") || msg.includes("contract") || msg.includes("security")) {
-    return `SMART CONTRACT AUDIT
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-Gas: OPTIMIZED
-Security: PASSED
-Liquidity: SAFE
-Dev Score: 75/100
-
-Status: SAFE FOR TRADING
-
-Recommendations:
-- Monitor liquidity
-- Check history  
-- Verify distribution`;
-  }
-
-  // DeFi queries
-  if (msg.includes("defi") || msg.includes("strategy") || msg.includes("yield") || msg.includes("farming")) {
-    return `DEFI STRATEGIES
-━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. LIQUIDITY PROVISION
-   APY: 6-12% | Risk: Low
-
-2. YIELD FARMING
-   APY: 15-40% | Risk: Medium
-
-3. STABLE SWAPS
-   APY: 3-5% | Risk: Very Low
-
-4. ARBITRAGE
-   APY: 10-25% | Risk: Low
-
-Which interests you?`;
-  }
-
-  // Default helpful response
-  return `I'm LIZA - Your Autonomous Trading Agent
-
-I can help with:
-- Wallet balance (real-time)
-- Token swaps
-- Trading bots
-- Contract audits
-- DeFi strategies
-
-Try asking:
-"Check my wallet balance"
-"How to swap tokens"
-"Help"
-"Deploy a trading bot"`;
 }
+
 
 export default async function handler(
   req: VercelRequest,
@@ -495,13 +631,21 @@ export default async function handler(
 
     const { sessionId, message, context, config, walletPublicKey } = body;
     
-    // Log wallet public key for debugging
-    console.log('[CHAT] Request received:', { 
-      sessionId, 
-      message: message.substring(0, 50), 
-      hasWalletPublicKey: !!walletPublicKey,
-      walletPublicKey: walletPublicKey ? `${walletPublicKey.substring(0, 8)}...${walletPublicKey.substring(walletPublicKey.length - 8)}` : 'none'
-    });
+    // Log wallet public key for debugging - VERY DETAILED
+    const walletInfo = {
+      type: typeof walletPublicKey,
+      length: walletPublicKey ? walletPublicKey.length : 0,
+      isEmpty: walletPublicKey === '' || walletPublicKey === null || walletPublicKey === undefined,
+      fullValue: walletPublicKey,
+      preview: walletPublicKey ? `${walletPublicKey.substring(0, 8)}...${walletPublicKey.substring(walletPublicKey.length - 8)}` : 'NOT PROVIDED',
+    };
+    console.log('[CHAT] ========== REQUEST RECEIVED ==========');
+    console.log('[CHAT] Session:', sessionId);
+    console.log('[CHAT] Message:', message.substring(0, 100));
+    console.log('[CHAT] Context:', context);
+    console.log('[CHAT] WALLET DATA:', walletInfo);
+    console.log('[CHAT] Full body:', JSON.stringify(body, null, 2));
+    console.log('[CHAT] ========================================');
 
     // Validate required fields
     if (!message) {
@@ -516,23 +660,19 @@ export default async function handler(
     // Generate AI response (now async!)
     const response = await generateResponse(message, context || "trading", config, walletPublicKey);
 
-    // Check if response is a structured swap response
-    let responseObject: any = { response, sessionId: finalSessionId, timestamp: new Date().toISOString() };
+    // Check if response is already a structured object
+    let responseObject: any;
     
-    try {
-      if (typeof response === 'string' && response.startsWith('{') && response.includes('_type')) {
-        const parsed = JSON.parse(response);
-        if (parsed._type === 'swap_pending_signature') {
-          responseObject = {
-            response: parsed.message,
-            swap: parsed.swap,
-            sessionId: finalSessionId,
-            timestamp: new Date().toISOString(),
-          };
-        }
-      }
-    } catch (e) {
-      // Not a JSON response, use as-is
+    if (typeof response === 'object' && response !== null && response.response) {
+      // generateResponse returned an object with { response, swap? }
+      responseObject = {
+        ...response,
+        sessionId: finalSessionId,
+        timestamp: new Date().toISOString()
+      };
+    } else {
+      // response is a string
+      responseObject = { response, sessionId: finalSessionId, timestamp: new Date().toISOString() };
     }
 
     return res.status(200).json(responseObject);

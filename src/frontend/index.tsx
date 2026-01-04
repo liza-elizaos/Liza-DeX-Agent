@@ -39,7 +39,13 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletAddress, setWalletAddress] = useState<string>(() => {
+    // Try to restore wallet from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('phantom_wallet') || '';
+    }
+    return '';
+  });
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +56,41 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Check if wallet is already connected from localStorage or Phantom
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      try {
+        const anyWindow = window as any;
+        
+        // Check if wallet exists in localStorage
+        const storedWallet = localStorage.getItem('phantom_wallet');
+        if (storedWallet) {
+          console.log('[WALLET] Restored from localStorage:', storedWallet.substring(0, 8) + '...');
+          setWalletAddress(storedWallet);
+          return;
+        }
+
+        // Try to reconnect from Phantom if it's available
+        if (anyWindow.phantom?.solana?.isConnected) {
+          console.log('[WALLET] Phantom is connected, getting public key...');
+          try {
+            const response = await anyWindow.phantom.solana.connect({ onlyIfTrusted: true });
+            const address = response.publicKey.toString();
+            console.log('[WALLET] Auto-connected to Phantom:', address.substring(0, 8) + '...');
+            localStorage.setItem('phantom_wallet', address);
+            setWalletAddress(address);
+          } catch (error) {
+            console.log('[WALLET] Auto-connect failed (user needs to connect manually)');
+          }
+        }
+      } catch (error) {
+        console.log('[WALLET] Wallet check error:', error);
+      }
+    };
+
+    checkWalletConnection();
+  }, []);
 
   const handleConnectWallet = async () => {
     try {
@@ -67,6 +108,8 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
       const address = response.publicKey.toString();
       console.log('[WALLET] Connected:', address);
       
+      // Persist wallet to localStorage
+      localStorage.setItem('phantom_wallet', address);
       setWalletAddress(address);
       
       // Show connection message
@@ -172,16 +215,30 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
         ? 'http://localhost:3000/api/chat'
         : '/api/chat';
 
+      console.log('[CHAT] Sending request:', {
+        apiUrl,
+        hasWallet: !!walletAddress,
+        walletPrefix: walletAddress ? `${walletAddress.substring(0, 8)}...` : 'none',
+        message: messageToSend.substring(0, 50),
+      });
+
+      const requestBody = {
+        sessionId,
+        message: messageToSend,
+        context: 'trading',
+        walletPublicKey: walletAddress || undefined,
+        config: null,
+      };
+
+      console.log('[CHAT] Request body:', {
+        ...requestBody,
+        walletPublicKey: requestBody.walletPublicKey ? `${requestBody.walletPublicKey.substring(0, 8)}...` : 'NOT SET',
+      });
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          message: messageToSend,
-          context: 'trading',
-          walletPublicKey: walletAddress || undefined,
-          config: null,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

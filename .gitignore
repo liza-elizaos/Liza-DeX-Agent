@@ -75,3 +75,4 @@ out
 # Temporary files
 *.tmp
 *.temp
+.env*.local

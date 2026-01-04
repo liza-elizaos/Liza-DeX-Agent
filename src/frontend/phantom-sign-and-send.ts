@@ -9,6 +9,15 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
+// Helper to convert Uint8Array -> base64 in browsers (no Buffer)
+function uint8ArrayToBase64(array: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < array.length; i++) {
+    binary += String.fromCharCode(array[i]);
+  }
+  return btoa(binary);
+}
+
 /**
  * Sign and send a VersionedTransaction base64 returned by the swap API.
  * - `wallet` should be the connected wallet adapter (e.g. from useWallet())
@@ -58,18 +67,52 @@ export async function signAndSendBase64Tx(
 
   console.log('[SIGN] Transaction signed successfully');
 
-  // Send signed transaction to RPC
-  const connection = new Connection(rpcUrl, 'confirmed');
+  // Serialize signed transaction to base64 (browser-safe)
   const raw = signedTx.serialize();
-  console.log('[SEND] Sending raw transaction, size:', raw.length, 'bytes');
+  const base64Tx = uint8ArrayToBase64(raw);
+  console.log('[SEND] Sending signed transaction via relay, size:', raw.length, 'bytes');
 
-  const txid = await connection.sendRawTransaction(raw, { skipPreflight: false, preflightCommitment: 'confirmed' });
-  console.log('[SEND] Transaction sent, txid:', txid);
+  // Send to backend relay endpoint (bypasses CORS)
+  try {
+    const relayUrl = '/api/relay-transaction';
+    const relayResponse = await fetch(relayUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionBase64: base64Tx }),
+    });
 
-  // Wait for confirmation (optional)
-  console.log('[CONFIRM] Waiting for confirmation...');
-  await connection.confirmTransaction(txid, 'confirmed');
-  console.log('[CONFIRM] Transaction confirmed!');
+    console.log('[SEND] Relay response status:', relayResponse.status);
 
-  return txid;
+    if (!relayResponse.ok) {
+      const errorData = await relayResponse.json().catch(() => ({}));
+      console.error('[SEND] Relay error:', errorData);
+      throw new Error(`Relay returned ${relayResponse.status}: ${JSON.stringify(errorData)}`);
+    }
+
+    const relayData = await relayResponse.json();
+    const txid = relayData.txid;
+
+    if (!txid) {
+      throw new Error('No txid returned from relay');
+    }
+
+    console.log('[SEND] Transaction relayed successfully, txid:', txid);
+
+    // Optionally wait for confirmation via relay or direct RPC
+    if (rpcUrl) {
+      try {
+        console.log('[CONFIRM] Waiting for confirmation...');
+        const connection = new Connection(rpcUrl, 'confirmed');
+        await connection.confirmTransaction(txid, 'confirmed');
+        console.log('[CONFIRM] Transaction confirmed!');
+      } catch (confirmErr) {
+        console.warn('[CONFIRM] Confirmation check failed (tx may still be valid):', confirmErr?.message || confirmErr);
+      }
+    }
+
+    return txid;
+  } catch (relayErr: any) {
+    console.error('[SEND] Relay failed:', relayErr?.message || relayErr);
+    throw new Error(`Failed to send transaction: ${relayErr?.message || 'Relay error'}`);
+  }
 }
