@@ -214,7 +214,7 @@ Examples:
     try {
       console.log("[CHAT] Calling portfolio endpoint for wallet:", userPublicKey);
 
-      // Call the portfolio API endpoint we just created
+      // Call the portfolio API endpoint  
       const baseUrl = process.env.VERCEL_URL 
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:3000';
@@ -230,7 +230,14 @@ Examples:
       });
 
       if (!portfolioResponse.ok) {
-        throw new Error(`Portfolio API error: ${portfolioResponse.status}`);
+        const errorData = await portfolioResponse.json().catch(() => ({}));
+        console.error('[CHAT] Portfolio API error:', portfolioResponse.status, errorData);
+        
+        // Return Solana explorer link as fallback
+        const explorerUrl = `https://explorer.solana.com/address/${userPublicKey}`;
+        return {
+          response: `📊 **Portfolio Verification**\n\nYour wallet: \`${userPublicKey}\`\n\n❌ Live portfolio analysis temporarily unavailable.\n\n✅ **View on Solana Explorer:**\n[${explorerUrl}](${explorerUrl})\n\nYou can independently verify all holdings, transactions, and token accounts on the blockchain explorer.\n\n**Your assets remain fully secure on-chain regardless of API status.**`,
+        };
       }
 
       const portfolioData = await portfolioResponse.json();

@@ -122,9 +122,12 @@ export default async function handler(
   } catch (error) {
     console.error('[Portfolio] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Return helpful error response
     res.status(500).json({
       success: false,
       error: message,
+      explorer: `https://explorer.solana.com/address/${req.body?.walletAddress || req.query.wallet}`,
     });
   }
 }
