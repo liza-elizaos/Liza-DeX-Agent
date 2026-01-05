@@ -423,7 +423,7 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
                 </button>
               </div>
               {showPortfolio && walletAddress && (
-                <PortfolioDashboard />
+                <PortfolioDashboard walletAddress={walletAddress} />
               )}
             </div>
           </div>

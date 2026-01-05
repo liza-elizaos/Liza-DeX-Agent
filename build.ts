@@ -22,79 +22,31 @@ async function build() {
     // Clean previous build
     await cleanBuild('dist');
 
-    // Run JavaScript build and TypeScript declarations in parallel
-    console.log('Starting build tasks...');
+    // Step 1: Build frontend with Vite FIRST (it needs clean dist)
+    console.log('🎨 Building frontend with Vite...');
+    try {
+      await $`vite build`.quiet();
+      console.log('✓ Frontend built successfully');
+    } catch (error) {
+      console.warn('⚠ Frontend build failed');
+      console.warn('  Continuing with API build...');
+    }
 
-    const [buildResult, tscResult, viteBuildResult] = await Promise.all([
-      // Task 1: Build with Bun
-      (async () => {
-        console.log('📦 Bundling with Bun...');
-        const result = await Bun.build({
-          entrypoints: ['./src/index.ts'],
-          outdir: './dist',
-          target: 'node',
-          format: 'esm',
-          sourcemap: true,
-          minify: false,
-          external: [
-            'dotenv',
-            'fs',
-            'path',
-            'https',
-            'node:*',
-            '@elizaos/core',
-            '@elizaos/plugin-bootstrap',
-            '@elizaos/plugin-sql',
-            '@elizaos/cli',
-            'zod',
-          ],
-          naming: {
-            entry: '[dir]/[name].[ext]',
-          },
-        });
+    // Step 2: Copy API files to dist (don't overwrite frontend files)
+    console.log('📦 Building API endpoints...');
+    try {
+      await $`mkdir -p dist/api`.quiet();
+      await $`cp -r api/* dist/api 2>/dev/null || true`.quiet();
+      console.log('✓ API endpoints copied');
+    } catch (error) {
+      console.warn('⚠ API copy warning (non-critical)');
+    }
 
-        if (!result.success) {
-          console.error('✗ Build failed:', result.logs);
-          return { success: false, outputs: [] };
-        }
-
-        const totalSize = result.outputs.reduce((sum, output) => sum + output.size, 0);
-        const sizeMB = (totalSize / 1024 / 1024).toFixed(2);
-        console.log(`✓ Built ${result.outputs.length} file(s) - ${sizeMB}MB`);
-
-        return result;
-      })(),
-
-      // Task 2: Generate TypeScript declarations
-      (async () => {
-        console.log('📝 Generating TypeScript declarations...');
-        try {
-          await $`tsc --emitDeclarationOnly --incremental --project ./tsconfig.build.json`.quiet();
-          console.log('✓ TypeScript declarations generated');
-          return { success: true };
-        } catch (error) {
-          console.warn('⚠ Failed to generate TypeScript declarations');
-          console.warn('  This is usually due to test files or type errors.');
-          return { success: false };
-        }
-      })(),
-
-      // Task 3: Build frontend with Vite
-      (async () => {
-        console.log('🎨 Building frontend with Vite...');
-        try {
-          await $`vite build`.quiet();
-          console.log('✓ Frontend built successfully');
-          return { success: true };
-        } catch (error) {
-          console.warn('⚠ Frontend build skipped or failed');
-          return { success: false };
-        }
-      })(),
-    ]);
-
-    if (!buildResult.success) {
-      return false;
+    // Step 3: Copy vercel config
+    try {
+      await $`cp vercel.json dist/vercel.json 2>/dev/null || true`.quiet();
+    } catch (error) {
+      // ignore
     }
 
     const elapsed = ((performance.now() - start) / 1000).toFixed(2);
