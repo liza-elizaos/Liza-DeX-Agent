@@ -212,23 +212,40 @@ Examples:
     }
 
     try {
-      // Call the portfolio API endpoint
-      const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-      
-      console.log("[CHAT] Calling portfolio API for wallet:", userPublicKey);
+      console.log("[CHAT] Calling portfolio endpoint for wallet:", userPublicKey);
 
-      // Dynamically import analyzePortfolio from portfolio-analytics
-      const { analyzePortfolio, formatPortfolioDisplay } = await import('./portfolio-analytics');
-      
-      const portfolio = await analyzePortfolio(userPublicKey, rpcUrl);
-      const display = formatPortfolioDisplay(portfolio);
+      // Call the portfolio API endpoint we created  
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
 
-      console.log("[CHAT] Portfolio analysis complete:", {
-        total: portfolio.totalValueUSD,
-        tokens: portfolio.tokenCount,
+      const portfolioResponse = await fetch(`${baseUrl}/api/portfolio`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: userPublicKey,
+        }),
       });
 
-      return { response: display };
+      if (!portfolioResponse.ok) {
+        throw new Error(`Portfolio API error: ${portfolioResponse.status}`);
+      }
+
+      const portfolioData = await portfolioResponse.json();
+
+      if (!portfolioData.success) {
+        throw new Error(portfolioData.error || 'Portfolio analysis failed');
+      }
+
+      console.log("[CHAT] Portfolio analysis complete:", {
+        total: portfolioData.data.totalValueUSD,
+        tokens: portfolioData.data.tokenCount,
+      });
+
+      // Return the formatted display from the API
+      return { response: portfolioData.display };
     } catch (err: any) {
       const errorMsg = err?.message || String(err);
       console.error("[CHAT] Portfolio error:", errorMsg);
