@@ -136,85 +136,32 @@ async function getTokenAccounts(walletAddress: string, connection: Connection) {
 
     console.log(`[PORTFOLIO] Fetching token accounts for ${walletAddress}`);
 
-    // TokenkegQfeZyiNwAJsyFbPVwwQQfimJwqDeg4qqvGn is the Token Program ID
-    const TOKEN_PROGRAM_ID = 'TokenkegQfeZyiNwAJsyFbPVwwQQfimJwqDeg4qqvGn';
+    // Use getParsedTokenAccountsByOwner with Token Program
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+      publicKey,
+      { programId: new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfimJwqDeg4qqvGn') },
+      'confirmed'
+    );
 
-    try {
-      // Use filters to query token accounts
-      const accounts = await connection.getTokenAccountsByOwner(publicKey, {
-        programId: new PublicKey(TOKEN_PROGRAM_ID),
-      });
+    console.log(`[PORTFOLIO] Found ${tokenAccounts.value.length} token accounts`);
 
-      console.log(`[PORTFOLIO] Found ${accounts.value.length} token accounts`);
-
-      const tokenAccounts = [];
-
-      for (const account of accounts.value) {
+    return tokenAccounts.value
+      .filter((account) => {
         try {
-          const data = account.account.data;
-          
-          // Token Account Data Layout (Compact):
-          // [0:32] - Mint pubkey
-          // [32:64] - Owner pubkey  
-          // [64:72] - Amount (u64)
-          // [72:73] - Decimals (u8)
-          // [73:74] - Is initialized (bool)
-          // [74:75] - Is frozen (bool)
-          // ... delegated authority, delegation ... (optional fields)
-
-          if (data.length < 73) continue;
-
-          const mint = new PublicKey(data.slice(0, 32)).toString();
-          const balanceBuffer = data.slice(64, 72);
-          const balance = Number(balanceBuffer.readBigUInt64LE(0));
-          const decimals = data[72];
-
-          if (balance > 0) {
-            tokenAccounts.push({
-              mint,
-              tokenAccount: account.pubkey.toString(),
-              balance,
-              decimals,
-            });
-          }
-        } catch (e) {
-          console.warn(`[PORTFOLIO] Error parsing token account`);
+          return account.account.data.parsed?.info?.tokenAmount?.amount > 0;
+        } catch {
+          return false;
         }
-      }
-
-      return tokenAccounts;
-    } catch (e1) {
-      console.warn('[PORTFOLIO] getTokenAccountsByOwner failed, attempting alternative approach...');
-      
-      try {
-        // Alternative: Try without the filter (some RPC providers don't support it)
-        const result = await connection.getParsedTokenAccountsByOwner(publicKey, {
-          programId: new PublicKey(TOKEN_PROGRAM_ID),
-        });
-
-        return result.value
-          .filter((account) => {
-            try {
-              const amount = account.account?.data?.parsed?.info?.tokenAmount?.amount;
-              return amount && parseInt(amount) > 0;
-            } catch {
-              return false;
-            }
-          })
-          .map((account) => {
-            const parsed = account.account.data.parsed.info;
-            return {
-              mint: parsed.mint,
-              tokenAccount: account.pubkey.toString(),
-              balance: parseInt(parsed.tokenAmount.amount),
-              decimals: parsed.tokenAmount.decimals,
-            };
-          });
-      } catch (e2) {
-        console.warn('[PORTFOLIO] All token account methods failed');
-        return [];
-      }
-    }
+      })
+      .map((account) => {
+        const parsed = account.account.data.parsed.info;
+        return {
+          mint: parsed.mint,
+          tokenAccount: account.pubkey.toString(),
+          balance: parseInt(parsed.tokenAmount.amount),
+          decimals: parsed.tokenAmount.decimals,
+        };
+      });
   } catch (error) {
     console.error('[PORTFOLIO] Error fetching token accounts:', error);
     return [];
@@ -356,63 +303,34 @@ export async function analyzePortfolio(
  * Format portfolio for display
  */
 export function formatPortfolioDisplay(portfolio: PortfolioSummary): string {
-  let display = `📊 **Portfolio Summary**\n`;
-  display += `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  let display = `💼 **PORTFOLIO ANALYSIS**\n\n`;
+  display += `📍 Wallet: \`${portfolio.walletAddress.substring(0, 8)}...\`\n`;
+  display += `💰 **Total Value: $${portfolio.totalValueUSD.toFixed(2)}**\n`;
+  display += `📊 Tokens Held: ${portfolio.tokenCount}\n\n`;
 
-  display += `💰 **Total Value**: $${portfolio.totalValueUSD.toFixed(2)}\n`;
-  display += `📈 **Token Count**: ${portfolio.tokenCount}\n\n`;
-
-  display += `**SOL Holdings:**\n`;
-  display += `├─ Amount: ${portfolio.solBalance.toFixed(6)} SOL\n`;
-  display += `└─ Value: $${portfolio.solValueUSD.toFixed(2)}\n\n`;
+  display += `**🔝 SOL Balance:**\n`;
+  display += `├─ ${portfolio.solBalance.toFixed(4)} SOL\n`;
+  display += `└─ $${portfolio.solValueUSD.toFixed(2)}\n\n`;
 
   if (portfolio.topTokens.length > 0) {
-    display += `**Top Holdings:**\n`;
-    portfolio.topTokens.forEach((token, idx) => {
-      const prefix = idx === portfolio.topTokens.length - 1 ? '└─' : '├─';
-      display += `${prefix} ${token.symbol}: ${token.balance.toFixed(6)} = $${token.valueUSD.toFixed(2)}\n`;
-    });
+    display += `**📈 Top Holdings:**\n`;
+    for (const token of portfolio.topTokens.slice(0, 5)) {
+      const percentage =
+        portfolio.totalValueUSD > 0 ? (token.valueUSD / portfolio.totalValueUSD) * 100 : 0;
+      display += `├─ ${token.symbol}: ${token.balance.toFixed(6)} ($${token.valueUSD.toFixed(2)}) - ${percentage.toFixed(1)}%\n`;
+    }
   }
 
-  display += `\n**Portfolio Composition:**\n`;
-  portfolio.portfolioComposition.slice(0, 5).forEach((comp, idx) => {
-    const prefix = idx === 4 || idx === portfolio.portfolioComposition.slice(0, 5).length - 1 ? '└─' : '├─';
-    display += `${prefix} ${comp.symbol}: ${comp.percentage.toFixed(2)}%\n`;
-  });
+  display += `\n**📊 Composition:**\n`;
+  for (const item of portfolio.portfolioComposition.slice(0, 8)) {
+    const barLength = Math.round(item.percentage / 5);
+    const bar = barLength > 0 ? '█'.repeat(Math.min(barLength, 20)) : '░';
+    display += `├─ ${item.symbol.padEnd(6)} ${bar.padEnd(20)} ${item.percentage.toFixed(1).padStart(5)}% ($${item.usdValue.toFixed(2).padStart(10)})\n`;
+  }
+
+  display += `\n⏰ Last Updated: ${new Date(portfolio.timestamp).toLocaleTimeString()}`;
 
   return display;
-}
-
-/**
- * Get portfolio changes over time
- */
-export function getPortfolioChange(
-  portfolio: PortfolioSummary,
-  previousPortfolio?: PortfolioSummary
-): {
-  totalValueChange: number;
-  percentageChange: number;
-  tokens: any[];
-} {
-  if (!previousPortfolio) {
-    return {
-      totalValueChange: 0,
-      percentageChange: 0,
-      tokens: [],
-    };
-  }
-
-  const valueChange = portfolio.totalValueUSD - previousPortfolio.totalValueUSD;
-  const percentageChange =
-    previousPortfolio.totalValueUSD > 0
-      ? (valueChange / previousPortfolio.totalValueUSD) * 100
-      : 0;
-
-  return {
-    totalValueChange: valueChange,
-    percentageChange,
-    tokens: [],
-  };
 }
 
 /**

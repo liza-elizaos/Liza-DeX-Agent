@@ -1,0 +1,42 @@
+{
+  "name": "Add Portfolio Action to LIZA",
+  "description": "Quick fix to make LIZA respond to portfolio requests",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Edit Character Config",
+      "file": "src/characters/liza.character.json",
+      "action": "ADD TO 'topics' ARRAY",
+      "code": "\"portfolio analysis\",\n\"portfolio breakdown\",\n\"token holdings\",\n\"my holdings\",\n\"show portfolio\",\n\"total value\",\n\"my portfolio\",\n\"what am i holding\""
+    },
+    {
+      "step": 2,
+      "title": "Create API Route",
+      "file": "api/portfolio.ts",
+      "action": "COPY ENTIRE CONTENT",
+      "source": "API_PORTFOLIO_ROUTE_READY.ts"
+    },
+    {
+      "step": 3,
+      "title": "Rebuild Project",
+      "command": "bun run build",
+      "expected": "✅ Build complete!"
+    },
+    {
+      "step": 4,
+      "title": "Test Locally",
+      "command": "bun run dev",
+      "test_message": "show my portfolio"
+    },
+    {
+      "step": 5,
+      "title": "Deploy",
+      "commands": [
+        "git add .",
+        "git commit -m 'Fix: Add Portfolio action to LIZA'",
+        "git push origin master"
+      ]
+    }
+  ],
+  "expected_result": "User says 'show my portfolio' → LIZA displays portfolio with holdings"
+}
