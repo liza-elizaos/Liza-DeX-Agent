@@ -3,7 +3,15 @@
  * Handles "show portfolio" and related requests
  */
 
-import { Action, IAgentRuntime, Memory, State } from '@elizaos/core';
+import {
+  Action,
+  IAgentRuntime,
+  Memory,
+  State,
+  ActionResult,
+  Content,
+  HandlerCallback,
+} from '@elizaos/core';
 import { analyzePortfolio, formatPortfolioDisplay } from '../api/portfolio-analytics';
 
 export const portfolioAction: Action = {
@@ -22,16 +30,36 @@ export const portfolioAction: Action = {
     'analyze portfolio',
   ],
   description: 'Shows your complete portfolio with real-time valuations',
-  validate: async (_runtime: IAgentRuntime) => true,
+  examples: [
+    [
+      {
+        user: 'User',
+        content: {
+          text: 'show my portfolio',
+        },
+      },
+      {
+        user: 'LIZA',
+        content: {
+          text: '💼 **PORTFOLIO ANALYSIS**\n\n📍 Wallet: CMVrzd...\n💰 **Total Value: $X,XXX.XX**',
+        },
+      },
+    ],
+  ],
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => {
+    return true;
+  },
+
   handler: async (
-    runtime: IAgentRuntime,
+    _runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
     _options?: Record<string, unknown>,
-    _callback?: (response: { text: string }) => void
-  ): Promise<boolean> => {
+    callback?: HandlerCallback,
+    _responses?: Memory[]
+  ): Promise<ActionResult> => {
     try {
-      // Get wallet address from environment or context
+      // Get wallet address from environment
       const walletAddress = process.env.SOLANA_PUBLIC_KEY || 'CMVrzdso4SShQm2irrc7jMCN9Vw5QxXvrZKB79cYPPJT';
 
       console.log('[PORTFOLIO_ACTION] Analyzing portfolio for:', walletAddress);
@@ -45,26 +73,38 @@ export const portfolioAction: Action = {
       // Format for display
       const display = formatPortfolioDisplay(portfolio);
 
-      // Return response
-      if (_callback) {
-        _callback({
-          text: display,
-        });
+      // Create response
+      const content: Content = {
+        text: display,
+      };
+
+      // Call callback if provided
+      if (callback) {
+        callback(content);
       }
 
-      return true;
+      return {
+        user: _message.userId,
+        content: content,
+        success: true,
+      };
     } catch (error) {
       console.error('[PORTFOLIO_ACTION] Error:', error);
 
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze portfolio';
+      const content: Content = {
+        text: `❌ Unable to fetch portfolio: ${errorMessage}`,
+      };
 
-      if (_callback) {
-        _callback({
-          text: `❌ Unable to fetch portfolio: ${errorMessage}`,
-        });
+      if (callback) {
+        callback(content);
       }
 
-      return false;
+      return {
+        user: _message.userId,
+        content: content,
+        success: false,
+      };
     }
   },
 };
