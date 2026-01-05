@@ -23,6 +23,10 @@ export default async function handler(
     // Get wallet address from POST body or GET query
     let walletAddress = '';
 
+    console.log('[Portfolio] Method:', req.method);
+    console.log('[Portfolio] Body:', JSON.stringify(req.body));
+    console.log('[Portfolio] Query:', JSON.stringify(req.query));
+
     if (req.method === 'POST') {
       walletAddress = req.body?.walletAddress || '';
     } else if (req.method === 'GET') {
@@ -32,10 +36,13 @@ export default async function handler(
       return;
     }
 
+    console.log('[Portfolio] Raw wallet input:', walletAddress);
+
     if (!walletAddress) {
       res.status(400).json({
         success: false,
         error: 'walletAddress is required',
+        received: walletAddress,
       });
       return;
     }
@@ -48,14 +55,21 @@ export default async function handler(
       .replace(/truncated/gi, '')
       .trim();
 
-    console.log('[Portfolio] Wallet:', walletAddress);
+    console.log('[Portfolio] Cleaned wallet:', walletAddress);
+    console.log('[Portfolio] Cleaned length:', walletAddress.length);
 
-    // Validate base58 format
-    const base58Regex = /^[1-9A-HJ-NP-Z]{44}$/;
-    if (!base58Regex.test(walletAddress)) {
+    // Validate base58 format (accept mixed case - Solana addresses)
+    // Solana uses base58 which includes: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{44}$/;
+    const isValid = base58Regex.test(walletAddress);
+    console.log('[Portfolio] Valid format?', isValid);
+
+    if (!isValid) {
       res.status(400).json({
         success: false,
         error: 'Invalid Solana wallet address format',
+        received: walletAddress,
+        length: walletAddress.length,
       });
       return;
     }
