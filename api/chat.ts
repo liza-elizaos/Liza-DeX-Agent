@@ -186,12 +186,74 @@ async function generateResponse(
 
   console.log("[CHAT] Processing message:", { original: message, lowercase: msg });
 
+  // ==================== PORTFOLIO ANALYSIS ====================
+  const hasPortfolio = msg.includes("portfolio") || msg.includes("holdings") || msg.includes("my tokens") || msg.includes("token breakdown");
+
+  if (hasPortfolio) {
+    console.log("[CHAT] ✅ Portfolio analysis request detected");
+
+    let userPublicKey = walletPublicKey || null;
+
+    if (!userPublicKey) {
+      const addressMatch = message.match(/([1-9A-HJ-NP-Za-km-z]{43,44})/);
+      userPublicKey = addressMatch ? addressMatch[0] : null;
+    }
+
+    console.log("[CHAT] Portfolio wallet key:", userPublicKey);
+
+    if (!userPublicKey) {
+      return {
+        response: `To view your portfolio, please connect your Solana wallet or provide your wallet address.
+
+Examples:
+• Connect via Phantom wallet button
+• Or provide your address: "portfolio 7kDH3pzNUH3Jx1oTeWjGHExKY89K5ZzQLVB3iw5dGLP"`,
+      };
+    }
+
+    try {
+      // Call the portfolio API endpoint
+      const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+      
+      console.log("[CHAT] Calling portfolio API for wallet:", userPublicKey);
+
+      // Dynamically import analyzePortfolio from portfolio-analytics
+      const { analyzePortfolio, formatPortfolioDisplay } = await import('./portfolio-analytics');
+      
+      const portfolio = await analyzePortfolio(userPublicKey, rpcUrl);
+      const display = formatPortfolioDisplay(portfolio);
+
+      console.log("[CHAT] Portfolio analysis complete:", {
+        total: portfolio.totalValueUSD,
+        tokens: portfolio.tokenCount,
+      });
+
+      return { response: display };
+    } catch (err: any) {
+      const errorMsg = err?.message || String(err);
+      console.error("[CHAT] Portfolio error:", errorMsg);
+
+      try {
+        const aiResponse = await callOpenRouter([
+          {
+            role: "user",
+            content: `Portfolio analysis failed with error: ${errorMsg}. Generate a helpful response.`,
+          },
+        ]);
+        return { response: aiResponse };
+      } catch {
+        return { response: `Portfolio analysis failed: ${errorMsg}\n\nPlease try again.` };
+      }
+    }
+  }
+
   // ==================== BALANCE/WALLET CHECK ====================
   const hasBalance = msg.includes("balance");
   const hasWallet = msg.includes("wallet");
   const hasCheck = msg.includes("check");
 
   if (hasBalance || hasWallet || hasCheck) {
+
     console.log("[CHAT] ✅ Detected balance/wallet/check query");
 
     let userPublicKey = walletPublicKey || null;

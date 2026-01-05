@@ -60,14 +60,35 @@ export const portfolioAction: Action = {
     _responses?: Memory[]
   ): Promise<ActionResult> => {
     try {
-      // Try to get wallet from message context first (for user-connected wallets)
-      let walletAddress = _state?.walletAddress || 
-                         _options?.walletAddress as string ||
-                         _message.content?.walletAddress as string;
+      // Try multiple sources to get wallet address
+      let walletAddress = '';
 
-      // Fallback to environment wallet
+      // Source 1: Direct context
+      walletAddress = (_state?.walletAddress as string) ||
+                      (_options?.walletAddress as string) ||
+                      (_message.content?.walletAddress as string);
+
+      // Source 2: Parse from message text - look for wallet address pattern
+      if (!walletAddress && _message.content?.text) {
+        const text = _message.content.text;
+        // Solana addresses are 44 character base58
+        const base58Pattern = /\b[1-9A-HJ-NP-Z]{44}\b/g;
+        const matches = text.match(base58Pattern);
+        if (matches && matches.length > 0) {
+          walletAddress = matches[0]; // Use first valid address found
+          console.log('[PORTFOLIO_ACTION] Extracted wallet from message:', walletAddress);
+        }
+      }
+
+      // Source 3: Check agent runtime user data
+      if (!walletAddress && runtime?.userId) {
+        walletAddress = (runtime as any).userWallet || (runtime as any).walletAddress;
+      }
+
+      // Source 4: Fallback to environment wallet
       if (!walletAddress) {
         walletAddress = process.env.SOLANA_PUBLIC_KEY || 'CMVrzdso4SShQm2irrc7jMCN9Vw5QxXvrZKB79cYPPJT';
+        console.log('[PORTFOLIO_ACTION] Using fallback environment wallet');
       }
 
       console.log('[PORTFOLIO_ACTION] Analyzing portfolio for:', walletAddress);
