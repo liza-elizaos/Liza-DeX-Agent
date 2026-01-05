@@ -1,6 +1,7 @@
 /**
  * Portfolio Action Plugin for LIZA
  * Handles "show portfolio" and related requests
+ * Now supports dynamic wallet addresses from user connection
  */
 
 import {
@@ -51,7 +52,7 @@ export const portfolioAction: Action = {
   },
 
   handler: async (
-    _runtime: IAgentRuntime,
+    runtime: IAgentRuntime,
     _message: Memory,
     _state?: State,
     _options?: Record<string, unknown>,
@@ -59,8 +60,15 @@ export const portfolioAction: Action = {
     _responses?: Memory[]
   ): Promise<ActionResult> => {
     try {
-      // Get wallet address from environment
-      const walletAddress = process.env.SOLANA_PUBLIC_KEY || 'CMVrzdso4SShQm2irrc7jMCN9Vw5QxXvrZKB79cYPPJT';
+      // Try to get wallet from message context first (for user-connected wallets)
+      let walletAddress = _state?.walletAddress || 
+                         _options?.walletAddress as string ||
+                         _message.content?.walletAddress as string;
+
+      // Fallback to environment wallet
+      if (!walletAddress) {
+        walletAddress = process.env.SOLANA_PUBLIC_KEY || 'CMVrzdso4SShQm2irrc7jMCN9Vw5QxXvrZKB79cYPPJT';
+      }
 
       console.log('[PORTFOLIO_ACTION] Analyzing portfolio for:', walletAddress);
 

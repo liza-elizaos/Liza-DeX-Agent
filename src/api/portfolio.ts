@@ -6,7 +6,7 @@
  * Fixes Phantom wallet address format issues
  */
 
-import { analyzePortfolio } from '@/src/api/portfolio-analytics';
+import { analyzePortfolio, formatPortfolioDisplay } from '@/src/api/portfolio-analytics';
 
 export async function POST(req: any) {
   try {
@@ -17,13 +17,18 @@ export async function POST(req: any) {
 
     // Validate wallet address exists
     if (!walletAddress) {
-      return Response.json(
-        {
-          success: false,
-          error: 'walletAddress is required',
-        },
-        { status: 400 }
-      );
+      // Try to use env wallet as fallback
+      walletAddress = process.env.SOLANA_PUBLIC_KEY;
+      if (!walletAddress) {
+        return Response.json(
+          {
+            success: false,
+            error: 'walletAddress is required (provide in body or set SOLANA_PUBLIC_KEY)',
+          },
+          { status: 400 }
+        );
+      }
+      console.log('[Portfolio API] Using env wallet as fallback');
     }
 
     // Clean wallet address (remove parentheses, whitespace, etc)
@@ -31,6 +36,7 @@ export async function POST(req: any) {
       .trim()
       .replace(/[()]/g, '') // Remove parentheses
       .replace(/\s+/g, '') // Remove whitespace
+      .replace(/truncated/gi, '') // Remove "truncated" text
       .trim();
 
     console.log('[Portfolio API] Cleaned wallet:', walletAddress);
