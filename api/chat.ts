@@ -214,7 +214,7 @@ Examples:
     try {
       console.log("[CHAT] Calling portfolio endpoint for wallet:", userPublicKey);
 
-      // Call the portfolio API endpoint we created  
+      // Call the portfolio API endpoint we just created
       const baseUrl = process.env.VERCEL_URL 
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:3000';
