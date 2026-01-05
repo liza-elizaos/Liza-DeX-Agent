@@ -4,6 +4,7 @@ import './index.css';
 import React, { useState, useRef, useEffect } from 'react';
 import type { UUID } from '@elizaos/core';
 import { signAndSendBase64Tx } from './phantom-sign-and-send';
+import PortfolioDashboard from './PortfolioDashboard';
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string>(() => {
     // Try to restore wallet from localStorage
     if (typeof window !== 'undefined') {
@@ -346,60 +348,86 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-md px-4 py-2 rounded-lg ${
-                message.role === 'user'
-                  ? 'bg-purple-600 text-white rounded-br-none'
-                  : 'bg-gray-800 text-gray-100 rounded-bl-none'
-              }`}
-            >
-              <p className="text-sm">{message.content}</p>
-              <p className="text-xs mt-1 opacity-70">
-                {message.timestamp.toLocaleTimeString()}
-              </p>
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 px-4 py-2 rounded-lg">
-              <div className="flex gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+      {/* Main Content - Grid Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Chat Section */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-md px-4 py-2 rounded-lg ${
+                    message.role === 'user'
+                      ? 'bg-purple-600 text-white rounded-br-none'
+                      : 'bg-gray-800 text-gray-100 rounded-bl-none'
+                  }`}
+                >
+                  <p className="text-sm">{message.content}</p>
+                  <p className="text-xs mt-1 opacity-70">
+                    {message.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
               </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-800 px-4 py-2 rounded-lg">
+                  <div className="flex gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-purple-800 p-4 bg-black">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={walletAddress ? "Type your message..." : "Connect wallet first..."}
+                className="flex-1 bg-gray-900 text-white rounded px-4 py-2 border border-purple-800 focus:border-purple-500 focus:outline-none"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-6 py-2 rounded font-semibold transition-colors"
+              >
+                Send
+              </button>
+            </form>
+            <p className="text-xs text-gray-500 mt-2">
+              💡 Try: "show portfolio" or "check balance" or "help"
+            </p>
+          </div>
+        </div>
+
+        {/* Portfolio Sidebar - Show when wallet connected */}
+        {walletAddress && (
+          <div className="w-96 border-l border-purple-800 bg-gray-950 overflow-y-auto">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold">📊 Portfolio</h2>
+                <button
+                  onClick={() => setShowPortfolio(!showPortfolio)}
+                  className="text-xs bg-purple-700 px-2 py-1 rounded hover:bg-purple-600"
+                >
+                  {showPortfolio ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {showPortfolio && walletAddress && (
+                <PortfolioDashboard />
+              )}
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-purple-800 p-4 bg-black">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={walletAddress ? "Type your message..." : "Connect wallet first..."}
-            className="flex-1 bg-gray-900 text-white rounded px-4 py-2 border border-purple-800 focus:border-purple-500 focus:outline-none"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-6 py-2 rounded font-semibold transition-colors"
-          >
-            Send
-          </button>
-        </form>
-        <p className="text-xs text-gray-500 mt-2">
-          💡 Try: "check my balance" or "swap" or "help"
-        </p>
       </div>
     </div>
   );
