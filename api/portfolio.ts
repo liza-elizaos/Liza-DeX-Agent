@@ -4,6 +4,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { analyzePortfolio, formatPortfolioDisplay } from './portfolio-inline';
 
 export default async function handler(
   req: VercelRequest,
@@ -75,27 +76,7 @@ export default async function handler(
     }
 
     // Import portfolio analytics - should be in same folder on Vercel
-    let analyzePortfolio: any;
-    let formatPortfolioDisplay: any;
-    
-    try {
-      // Try: same directory (for Vercel)
-      const m = await import('./portfolio-analytics');
-      analyzePortfolio = m.analyzePortfolio;
-      formatPortfolioDisplay = m.formatPortfolioDisplay;
-      console.log('[Portfolio] ✅ Loaded from ./portfolio-analytics');
-    } catch (e1: any) {
-      console.log('[Portfolio] Local import failed, trying src path');
-      try {
-        // Try: from src (for local development)
-        const m = await import('../src/api/portfolio-analytics');
-        analyzePortfolio = m.analyzePortfolio;
-        formatPortfolioDisplay = m.formatPortfolioDisplay;
-        console.log('[Portfolio] ✅ Loaded from ../src/api/portfolio-analytics');
-      } catch (e2: any) {
-        throw new Error(`Cannot load portfolio-analytics: ${e1.message}`);
-      }
-    }
+    // Now using inline version to avoid import issues on Vercel
 
     // Get RPC URL
     const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
