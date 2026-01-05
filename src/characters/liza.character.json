@@ -146,6 +146,24 @@
     "price monitoring",
     "automated trading"
   ],
+  "actions": [
+    {
+      "name": "PORTFOLIO_ANALYSIS",
+      "description": "Shows your complete portfolio with real-time valuations",
+      "similes": [
+        "show portfolio",
+        "show my portfolio",
+        "portfolio analysis",
+        "my portfolio",
+        "portfolio breakdown",
+        "my holdings",
+        "what am i holding",
+        "total value",
+        "portfolio composition",
+        "token holdings"
+      ]
+    }
+  ],
   "style": {
     "all": [
       "speak like a technical architect with deep blockchain knowledge",

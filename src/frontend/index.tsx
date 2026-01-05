@@ -4,6 +4,12 @@ import './index.css';
 import React, { useState, useRef, useEffect } from 'react';
 import type { UUID } from '@elizaos/core';
 import { signAndSendBase64Tx } from './phantom-sign-and-send';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { clusterApiUrl } from '@solana/web3.js';
+import PortfolioDashboard from './PortfolioDashboard';
 
 const queryClient = new QueryClient();
 
@@ -461,6 +467,28 @@ export const panels: AgentPanel[] = [
     icon: 'MessageCircle',
     public: true,
     shortLabel: 'Chat',
+  },
+  {
+    name: 'Portfolio',
+    path: 'portfolio',
+    component: () => {
+      const network = WalletAdapterNetwork.Mainnet;
+      const endpoint = process.env.SOLANA_RPC_URL || clusterApiUrl(network);
+      const wallets = [new PhantomWalletAdapter()];
+
+      return (
+        <ConnectionProvider endpoint={endpoint}>
+          <WalletProvider wallets={wallets} autoConnect>
+            <WalletModalProvider>
+              <PortfolioDashboard />
+            </WalletModalProvider>
+          </WalletProvider>
+        </ConnectionProvider>
+      );
+    },
+    icon: 'PieChart',
+    public: true,
+    shortLabel: 'Portfolio',
   },
 ];
 
