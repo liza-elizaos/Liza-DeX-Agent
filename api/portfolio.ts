@@ -70,10 +70,98 @@ async function analyzePortfolio(
   const solValueUSD = solBalance * solPrice;
   console.log(`[PORTFOLIO] SOL Value: $${solValueUSD.toFixed(2)}`);
 
-  // Token accounts (will fail on most endpoints - that's OK)
+  // Token accounts
   console.log('[PORTFOLIO] Fetching token accounts...');
   const tokens: TokenBalance[] = [];
-  console.log('[PORTFOLIO] Total token accounts: 0');
+  
+  try {
+    const publicKey = new PublicKey(walletAddress);
+    
+    // Use getProgramAccounts to find all token accounts
+    // This is more compatible with Alchemy
+    const filters = [
+      {
+        dataSize: 165, // Token account size
+      },
+      {
+        memcmp: {
+          offset: 32, // Owner address offset in token account
+          bytes: publicKey.toBase58(),
+        },
+      },
+    ];
+
+    const tokenAccounts = await connection.getProgramAccounts(
+      new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfuM32jneSYP1daB'),
+      {
+        filters,
+        encoding: 'jsonParsed',
+      }
+    );
+
+    console.log(`[PORTFOLIO] Found ${tokenAccounts.length} token accounts`);
+
+    // Common token mappings
+    const tokenMap: Record<string, string> = {
+      'EPjFWaLb3crJC2z8rxVmE4Gnjg1d4PjNiYq4a8JqkEH': 'USDC',
+      'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BcJkxN': 'USDT',
+      'mSoLzYCxHdgfd3DgZjwwzG8DUR6azJstEWQcW2UCb9': 'mSOL',
+      'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac': 'MANGO',
+      'Kin3gmeNyStCG9kD9B7A6Cq9u3vf3S3PgVCHvRAXVs1': 'KIN',
+      'UXPhBoR3qMCSVtL4Yntjg3Ufty5rVJd6QPanrVnrgEU': 'UXP',
+      'Fkz3TqvIYi2xhYv2wnxkfzv3QV5a8jNfbSJpjCL3V9Q': 'WSB',
+      '11111111111111111111111111111111': 'SOL_WRAPPED',
+    };
+
+    // Process each token account
+    for (const tokenAccount of tokenAccounts) {
+      try {
+        const parsedInfo = (tokenAccount.account.data as any)?.parsed?.info;
+        if (!parsedInfo) continue;
+
+        const mint = parsedInfo.mint;
+        const balance = parsedInfo.tokenAmount?.uiAmount || 0;
+        const decimals = parsedInfo.tokenAmount?.decimals || 6;
+
+        if (balance <= 0) continue; // Skip zero balances
+
+        // Get token symbol
+        let symbol = tokenMap[mint] || `${mint.substring(0, 6).toUpperCase()}`;
+
+        // Try to get price from Jupiter
+        let price = 0;
+        try {
+          const priceResponse = await axios.get(
+            `https://api.jup.ag/price?ids=${mint}`,
+            { timeout: 3000 }
+          );
+          price = priceResponse.data?.data?.[mint]?.price || 0;
+        } catch (e) {
+          console.log(`[PORTFOLIO] Could not fetch price for ${symbol}`);
+        }
+
+        const valueUSD = balance * price;
+
+        if (valueUSD > 0.01) { // Only include tokens with >$0.01 value
+          tokens.push({
+            mint,
+            symbol,
+            balance,
+            decimals,
+            valueUSD,
+          });
+        }
+      } catch (err) {
+        console.log(`[PORTFOLIO] Error processing token account:`, err instanceof Error ? err.message : 'Error');
+      }
+    }
+
+    // Sort by value
+    tokens.sort((a, b) => b.valueUSD - a.valueUSD);
+    console.log(`[PORTFOLIO] Found ${tokens.length} valuable tokens`);
+  } catch (error) {
+    console.log('[PORTFOLIO] Could not fetch token accounts (non-critical):', error instanceof Error ? error.message : 'Unknown error');
+  }
 
   // Build summary
   const totalValueUSD = solValueUSD + tokens.reduce((sum, t) => sum + t.valueUSD, 0);
