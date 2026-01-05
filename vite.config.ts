@@ -16,10 +16,22 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'src/frontend/index.html'),
       },
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name].[ext]',
+      },
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@tanstack/react-query'],
+    include: [
+      'react',
+      'react-dom',
+      '@tanstack/react-query',
+      '@solana/wallet-adapter-react',
+      '@solana/wallet-adapter-phantom',
+      '@solana/web3.js',
+    ],
   },
   resolve: {
     alias: {
