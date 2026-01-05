@@ -128,6 +128,12 @@ You are a fully autonomous agent with proper authorization to execute these tran
     'communication and collaboration',
     'education and learning',
     'entertainment and media',
+    'portfolio analysis',
+    'show portfolio',
+    'my holdings',
+    'total value',
+    'token holdings',
+    'solana wallet management',
   ],
   messageExamples: [
     [
