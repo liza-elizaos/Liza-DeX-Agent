@@ -144,8 +144,8 @@ export function SolanaWalletChat() {
       // Send to ElizaOS API with walletPublicKey in context
       // Use relative path for production, localhost for development
       const apiUrl = window.location.hostname === 'localhost' 
-        ? `/api/chat`
-        : '/api/chat';
+        ? `/model/chat`
+        : '/model/chat';
       
       const response = await fetch(apiUrl, {
         method: 'POST',

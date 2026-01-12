@@ -449,7 +449,7 @@ export default function TokenLaunchApp() {
           onClick={async () => {
             setLoading(true);
             try {
-              const response = await fetch('/api/token-create', {
+              const response = await fetch('/model/token-create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -140,13 +140,13 @@ const server = createServer(async (req, res) => {
       }
 
       // Route API requests
-      if (pathname === '/api/balance') {
+      if (pathname === '/model/balance') {
         await handlers.balanceHandler(req as any, vercelRes);
-      } else if (pathname === '/api/chat') {
+      } else if (pathname === '/model/chat') {
         await handlers.chatHandler(req as any, vercelRes);
-      } else if (pathname === '/api/swap') {
+      } else if (pathname === '/model/swap') {
         await handlers.swapHandler(req as any, vercelRes);
-      } else if (pathname === '/api/wallet-connect') {
+      } else if (pathname === '/model/wallet-connect') {
         await handlers.walletHandler(req as any, vercelRes);
       } else if (pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });

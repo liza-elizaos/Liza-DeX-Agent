@@ -175,8 +175,8 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
         try {
           // Use relative path for production, localhost for development
           const apiUrl = window.location.hostname === 'localhost' 
-            ? '/api/chat'
-            : '/api/chat';
+            ? '/model/chat'
+            : '/model/chat';
           console.log('[WALLET] Calling API:', apiUrl, 'with message:', `check my balance ${address}`);
           
           const response = await fetch(apiUrl, {

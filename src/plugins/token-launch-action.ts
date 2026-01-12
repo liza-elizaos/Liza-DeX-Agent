@@ -209,9 +209,9 @@ async function launchTokenOnMainnet(
     if (!apiUrl) {
       // Try common Vercel deployment URL patterns
       if (process.env.VERCEL_URL) {
-        apiUrl = `https://${process.env.VERCEL_URL}/api/token-create`;
+        apiUrl = `https://${process.env.VERCEL_URL}/model/token-create`;
       } else if (process.env.NEXT_PUBLIC_API_URL) {
-        apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/token-create`;
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/model/token-create`;
       } else {
         // Local development fallback
         apiUrl = process.env.NODE_ENV === 'production' 

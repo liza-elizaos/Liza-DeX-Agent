@@ -38,7 +38,7 @@ export default function CreatorDashboard() {
   const fetchCreatorData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/creator-rewards?wallet=${publicKey?.toBase58()}`);
+      const response = await fetch(`/model/creator-rewards?wallet=${publicKey?.toBase58()}`);
       const data = await response.json();
       setCreatorData(data);
     } catch (error) {
