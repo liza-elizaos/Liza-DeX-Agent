@@ -2,19 +2,22 @@
 
 > **First Decentralized AI Agent for Solana & Jeju Network Token/Wallet Management & Trading**
 
-![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-blue?logo=github&style=flat-square) 
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Status](https://img.shields.io/badge/Status-Active%20Development-orange?style=flat-square)
-![ElizaOS](https://img.shields.io/badge/ElizaOS-v1.7.0-purple?style=flat-square)
-![Solana](https://img.shields.io/badge/Solana-Web3.js-14F195?style=flat-square)
-![Jeju](https://img.shields.io/badge/Jeju%20Network-Ready-blue?style=flat-square)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square)
+<div align="center">
+
+![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-181717?style=flat-square&logo=github) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Active%20Development-FF6B35?style=flat-square) ![ElizaOS](https://img.shields.io/badge/ElizaOS-v1.7.0-purple?style=flat-square&logo=openai) ![Solana](https://img.shields.io/badge/Solana-Web3.js-14F195?style=flat-square&logo=solana) ![Jeju](https://img.shields.io/badge/Jeju%20Network-Ready-0066FF?style=flat-square) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript)
+
+</div>
+
+<div align="center">
 
 ### 🔗 **Quick Links**
-[![Twitter - Liza](https://img.shields.io/badge/Twitter-Liza_ElizaOS-1DA1F2?logo=twitter&style=flat-square)](https://x.com/Liza_ElizaOS)
-[![Twitter - 0xblockXBT](https://img.shields.io/badge/Twitter-0xblockXBT-1DA1F2?logo=twitter&style=flat-square)](https://x.com/0xblockXBT)
-[![Website](https://img.shields.io/badge/Website-liza--dexagent.xyz-FF6B00?style=flat-square)](https://www.liza-dexagent.xyz/)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&style=flat-square)](https://discord.gg/elizaos)
+
+[![Twitter - Liza](https://img.shields.io/badge/Twitter-@Liza__ElizaOS-1DA1F2?style=flat-square&logo=x)](https://x.com/Liza_ElizaOS) 
+[![Twitter - Dev](https://img.shields.io/badge/Twitter-@0xblockXBT-1DA1F2?style=flat-square&logo=x)](https://x.com/0xblockXBT)
+[![Website](https://img.shields.io/badge/Website-liza--dexagent.xyz-FF6B00?style=flat-square&logo=world)](https://www.liza-dexagent.xyz/)
+[![Discord](https://img.shields.io/badge/Discord-Community-5865F2?style=flat-square&logo=discord)](https://discord.gg/elizaos)
+
+</div>
 
 ---
 
