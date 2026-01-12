@@ -1,44 +1,105 @@
-# Project Starter
+# LIZA - Autonomous Solana AI Assistant for elizaOS
 
-This is the starter template for ElizaOS projects.
+LIZA is a powerful autonomous AI agent for the elizaOS framework that provides comprehensive Solana blockchain integration and token management capabilities.
 
 ## Features
 
-- Pre-configured project structure for ElizaOS development
-- Comprehensive testing setup with component and e2e tests
-- Default character configuration with plugin integration
-- Example service, action, and provider implementations
-- TypeScript configuration for optimal developer experience
-- Built-in documentation and examples
+### 🚀 Core Capabilities
+- **Token Launch** - Launch tokens on AutoFun bonding curves with automatic Raydium graduation
+- **Swap Trading** - Execute token swaps via Jupiter Protocol with real-time price feeds
+- **Portfolio Management** - Real-time wallet portfolio analysis with multi-token valuations
+- **Creator Rewards** - Automated fee claiming and creator reward distribution system
+- **Market Intelligence** - Trend detection and market analysis for tokens
+
+### 🛠️ Technical Stack
+- **elizaOS v1.7.0** - AI agent framework with plugin architecture
+- **Solana Web3.js** - Blockchain interaction and wallet management
+- **AutoFun SDK** - Bonding curve token launches
+- **Jupiter Protocol** - DEX aggregation and token swaps
+- **TypeScript** - Full type safety with strict mode
+- **Vercel** - Serverless API backend
+- **React** - Modern frontend UI with Tailwind CSS
 
 ## Getting Started
 
-```bash
-# Create a new project
-elizaos create --type project my-project
-# Dependencies are automatically installed and built
+### Prerequisites
+- Node.js 18+
+- npm or bun
+- Solana wallet with test/devnet SOL
+- Environment variables configured
 
-# Navigate to the project directory
-cd my-project
-
-# Start development immediately
-elizaos dev
-```
-
-## Development
+### Installation
 
 ```bash
-# Start development with hot-reloading (recommended)
-elizaos dev
+# Clone repository
+git clone https://github.com/liza-elizaos/liza.git
+cd liza
 
-# OR start without hot-reloading
-elizaos start
-# Note: When using 'start', you need to rebuild after changes:
-# bun run build
+# Install dependencies
+npm install
 
-# Test the project
-elizaos test
+# Build project
+npm run build
+
+# Start development server
+npm run dev
 ```
+
+### Environment Configuration
+
+Create `.env.local` with:
+```
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_PRIVATE_KEY=your_base58_encoded_key
+SOLANA_PUBLIC_KEY=your_wallet_address
+HELIUS_RPC_URL=your_helius_rpc_endpoint
+API_BASE_URL=http://localhost:3001
+```
+
+## API Endpoints
+
+### Token Management
+- `POST /api/token-create` - Create new SPL token
+- `POST /api/token-launch` - Launch token on AutoFun
+- `POST /api/token-buy` - Execute token purchase
+
+### Portfolio
+- `GET /api/portfolio?wallet={address}` - Get wallet portfolio
+- `POST /api/portfolio-analytics` - Detailed portfolio analysis
+
+### Creator
+- `GET /api/creator-rewards?wallet={address}` - Get creator rewards
+- `POST /api/claim-rewards` - Claim accumulated rewards
+
+## Building & Deployment
+
+```bash
+# Development
+npm run dev
+
+# Production build
+npm run build
+
+# Type checking
+npm run type-check
+
+# Format code
+npm run format
+```
+
+## Deployment
+
+### Vercel
+```bash
+npm run build
+vercel deploy
+```
+
+Set environment variables in Vercel dashboard for:
+- `SOLANA_RPC_URL`
+- `SOLANA_PRIVATE_KEY`
+- `SOLANA_PUBLIC_KEY`
+- `HELIUS_API_KEY`
 
 ## Testing
 
