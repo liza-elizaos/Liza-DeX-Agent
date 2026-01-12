@@ -1,14 +1,50 @@
 # 🤖 LIZA - Autonomous Solana AI Assistant for elizaOS
 
-> **Enterprise-Grade AI Agent for Solana Token Management & Trading**
+> **Enterprise-Grade AI Agent for Solana & Jeju Network Token Management & Trading**
 
 ![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-blue?logo=github&style=flat-square) 
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active%20Development-orange?style=flat-square)
 ![ElizaOS](https://img.shields.io/badge/ElizaOS-v1.7.0-purple?style=flat-square)
 ![Solana](https://img.shields.io/badge/Solana-Web3.js-14F195?style=flat-square)
+![Jeju](https://img.shields.io/badge/Jeju%20Network-Ready-blue?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square)
 
-LIZA is a production-ready autonomous AI agent that seamlessly integrates with the [ElizaOS](https://github.com/elizaos/eliza) framework to provide comprehensive Solana blockchain capabilities including token launches, real-time trading, portfolio management, and creator reward automation.
+### 🔗 **Quick Links**
+[![Twitter - Liza](https://img.shields.io/badge/Twitter-Liza_ElizaOS-1DA1F2?logo=twitter&style=flat-square)](https://x.com/Liza_ElizaOS)
+[![Twitter - 0xblockXBT](https://img.shields.io/badge/Twitter-0xblockXBT-1DA1F2?logo=twitter&style=flat-square)](https://x.com/0xblockXBT)
+[![Website](https://img.shields.io/badge/Website-liza--dexagent.xyz-FF6B00?style=flat-square)](https://www.liza-dexagent.xyz/)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&style=flat-square)](https://discord.gg/elizaos)
+
+---
+
+**LIZA** is a production-ready autonomous AI agent that seamlessly integrates with the [ElizaOS](https://github.com/elizaos/eliza) framework to provide comprehensive blockchain capabilities for **Solana** and **Jeju Network**. Features include token launches, real-time trading, portfolio management, creator reward automation, and advanced AI-driven decision making.
+
+### 🚀 **Currently Active Development**
+This project is under **active development** with continuous improvements and new features being added with each release. Regular updates are published to the repository with enhanced functionality, bug fixes, and community-requested features.
+
+---
+
+## 📊 Development Status & Release Cycle
+
+| Status | Details |
+|--------|---------|
+| **Current Version** | v0.1.x (Beta) |
+| **Development** | 🟢 Active |
+| **Update Frequency** | Weekly commits, bi-weekly releases |
+| **Next Release** | v0.2.0 - Jeju Network Support (Q1 2026) |
+| **Stability** | Production-ready for Solana, Beta for Jeju |
+| **Last Update** | January 13, 2026 |
+| **Issue Response** | 24-48 hours |
+| **Community** | Growing, contributions welcome |
+
+### **Release Schedule**
+- **Weekly Development Builds** - Bug fixes and minor improvements
+- **Bi-Weekly Releases** - New features and enhancements
+- **Major Releases (Quarterly)** - Significant new functionality
+- **Security Patches (As needed)** - Critical fixes deployed immediately
+
+We maintain a transparent roadmap and actively involve the community in feature prioritization.
 
 ---
 
@@ -48,11 +84,18 @@ LIZA is a production-ready autonomous AI agent that seamlessly integrates with t
 
 ## 🛠️ Technology Stack
 
+### **Supported Blockchains**
+- **Solana** - Primary deployment with full mainnet support
+- **Jeju Network** - Next-generation blockchain for scalable DeFi operations
+
+### **Core Technologies**
+
 | Component | Technology | Version |
 |-----------|-----------|---------|
 | **Framework** | [ElizaOS](https://github.com/elizaos/eliza) | v1.7.0 |
 | **Blockchain** | [Solana Web3.js](https://solana-labs.github.io/solana-web3.js/) | v1.98.4+ |
-| **Token Standard** | [SPL Token](https://spl.solana.com/token) | v0.4.14+ |
+| **Jeju Network** | [Jeju RPC](https://jejunetwork.io) | Latest |
+| **Token Standard** | [SPL Token](https://spl.solana.com/token) / Jeju Native | v0.4.14+ |
 | **DEX Integration** | [Jupiter Protocol](https://jup.ag) | Latest |
 | **Language** | [TypeScript](https://www.typescriptlang.org/) | 5.0+ |
 | **Runtime** | [Node.js](https://nodejs.org/) / [Bun](https://bun.sh/) | 18+ / Latest |
@@ -95,6 +138,7 @@ npm run dev
 Create `.env.local` in the project root:
 
 ```env
+# ===== SOLANA CONFIGURATION =====
 # Solana RPC (use mainnet-beta for production)
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 # Or use Helius for faster speeds
@@ -106,13 +150,24 @@ SOLANA_PRIVATE_KEY=your_base58_private_key_here
 # Your wallet public address
 SOLANA_PUBLIC_KEY=your_solana_wallet_address
 
-# Optional: API configuration
+# ===== JEJU NETWORK CONFIGURATION =====
+# Jeju Network RPC endpoint
+JEJU_RPC_URL=https://rpc.jejunetwork.io
+JEJU_CHAIN_ID=8217
+JEJU_PRIVATE_KEY=your_jeju_private_key_here
+JEJU_PUBLIC_KEY=your_jeju_wallet_address
+
+# ===== API CONFIGURATION =====
 API_BASE_URL=http://localhost:3001
 NODE_ENV=development
 PORT=3001
 
-# Optional: Bags FM API (for token launches)
+# ===== OPTIONAL: BAGS FM API =====
 BAGS_FM_API_KEY=your_api_key_here
+
+# ===== NETWORK SELECTION =====
+# Choose: 'solana' | 'jeju' | 'both'
+ACTIVE_NETWORKS=both
 ```
 
 **🔐 Security Note:** Never commit `.env.local` to version control. Use `.env.example` for team sharing.
@@ -247,6 +302,45 @@ Content-Type: application/json
 ```
 
 **See [Complete API Documentation](./COMPLETE_IMPLEMENTATION_GUIDE.md) for all endpoints**
+
+---
+
+## 🌐 Jeju Network Integration
+
+LIZA provides comprehensive support for **Jeju Network**, a next-generation blockchain platform designed for scalable and efficient DeFi operations. 
+
+### **Why Jeju Network?**
+- **Lower Fees:** Significantly reduced transaction costs compared to traditional blockchains
+- **Higher Speed:** Fast block times for near-instant transactions
+- **Scalability:** Built for high-throughput DeFi applications
+- **EVM Compatible:** Easy integration with Ethereum ecosystem tools
+- **Growing Ecosystem:** Rapidly expanding list of dApps and protocols
+
+### **Jeju Network Features in LIZA**
+- ✅ Token creation on Jeju Network
+- ✅ Automated token launches
+- ✅ Real-time portfolio tracking across Jeju assets
+- ✅ Cross-chain token swaps (Solana ↔ Jeju)
+- ✅ Creator rewards distribution
+- ✅ AI-powered trading strategies
+- 🔄 Multi-chain analytics (coming soon)
+
+### **Get Started with Jeju Network**
+
+```env
+# Configure Jeju Network in .env.local
+JEJU_RPC_URL=https://rpc.jejunetwork.io
+JEJU_CHAIN_ID=8217
+JEJU_PRIVATE_KEY=your_key_here
+JEJU_PUBLIC_KEY=your_address_here
+ACTIVE_NETWORKS=both  # Use 'jeju', 'solana', or 'both'
+```
+
+**Jeju Network Resources:**
+- [Jeju Network Official](https://jejunetwork.io)
+- [Jeju Network Docs](https://docs.jejunetwork.io)
+- [Jeju Network Explorer](https://explorer.jejunetwork.io)
+- [Jeju Network Discord](https://discord.gg/jejunetwork)
 
 ---
 
@@ -405,22 +499,81 @@ MIT License - see [LICENSE](./LICENSE)
 
 ---
 
-## 🆘 Support
+## 🆘 Support & Community
 
-- [GitHub Issues](https://github.com/liza-elizaos/Liza-DeX-Agent/issues)
-- [GitHub Discussions](https://github.com/liza-elizaos/Liza-DeX-Agent/discussions)
-- [ElizaOS Discord](https://discord.gg/elizaos)
-- [Solana Discord](https://discord.gg/solana)
+### **Official Channels**
+- **Website:** [liza-dexagent.xyz](https://www.liza-dexagent.xyz/)
+- **Twitter - LIZA:** [@Liza_ElizaOS](https://x.com/Liza_ElizaOS)
+- **Twitter - Lead:** [@0xblockXBT](https://x.com/0xblockXBT)
+- **Discord:** [ElizaOS Community](https://discord.gg/elizaos)
+
+### **Development & Issues**
+- **GitHub Issues:** [Report bugs](https://github.com/liza-elizaos/Liza-DeX-Agent/issues)
+- **GitHub Discussions:** [Ask questions](https://github.com/liza-elizaos/Liza-DeX-Agent/discussions)
+- **Solana Discord:** [Developer community](https://discord.gg/solana)
+
+### **Response Time**
+- **Critical Issues:** 4-6 hours
+- **Bug Reports:** 24-48 hours
+- **Feature Requests:** Reviewed within 1 week
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] v0.2.0 - Advanced AI trading
-- [ ] v0.3.0 - Multi-chain support
-- [ ] v0.4.0 - Portfolio rebalancing
-- [ ] v0.5.0 - Mobile app
-- [ ] v1.0.0 - Production release
+### **Current Version (v0.1.x) - Active Development**
+- ✅ Solana mainnet support
+- ✅ Token creation and launches
+- ✅ Jupiter Protocol integration
+- ✅ Portfolio management
+- ✅ Creator rewards system
+- ✅ ElizaOS AI framework integration
+- 🔄 Jeju Network integration (in progress)
+
+### **Upcoming Releases**
+
+**v0.2.0** - Jeju Network Launch (Q1 2026)
+- [ ] Full Jeju Network support
+- [ ] Cross-chain token management
+- [ ] Enhanced AI trading strategies
+- [ ] Advanced portfolio rebalancing
+- [ ] Multi-chain wallet aggregation
+
+**v0.3.0** - Advanced Features (Q2 2026)
+- [ ] Multi-chain support (Ethereum, Base, Arbitrum)
+- [ ] Advanced risk assessment
+- [ ] Automated market-making strategies
+- [ ] Real-time sentiment analysis
+- [ ] Enhanced UI/UX improvements
+
+**v0.4.0** - Scaling & Optimization (Q3 2026)
+- [ ] Performance optimization
+- [ ] Enhanced security audits
+- [ ] Advanced portfolio rebalancing
+- [ ] Institutional-grade features
+- [ ] API rate limiting improvements
+
+**v0.5.0** - Mobile & Social (Q4 2026)
+- [ ] Native mobile app (iOS/Android)
+- [ ] Social trading features
+- [ ] Community governance
+- [ ] Advanced Discord/Telegram integration
+- [ ] Mobile wallet support
+
+**v1.0.0** - Production Release (Q1 2027)
+- [ ] Full production stability
+- [ ] Enterprise features
+- [ ] Advanced analytics dashboard
+- [ ] Institutional partnerships
+- [ ] Mainnet stability certification
+
+### **Community-Requested Features**
+We actively monitor GitHub Issues and Discussions for feature requests. Popular community requests include:
+- Multi-signature wallet support
+- NFT portfolio tracking
+- Advanced tax reporting
+- Yield farming optimization
+- Community governance tokens
 
 ---
 
@@ -428,6 +581,7 @@ MIT License - see [LICENSE](./LICENSE)
 
 - [ElizaOS](https://github.com/elizaos/eliza) - AI Framework
 - [Solana](https://solana.com) - Blockchain
+- [Jeju Network](https://jejunetwork.io) - Next-Gen Blockchain
 - [Jupiter](https://jup.ag) - DEX Aggregation
 - [Pump.fun](https://pump.fun) - Token Launches
 
@@ -437,8 +591,19 @@ MIT License - see [LICENSE](./LICENSE)
 
 **Made with ❤️ by the LIZA team**
 
-[GitHub](https://github.com/liza-elizaos/Liza-DeX-Agent) • [Docs](./COMPLETE_IMPLEMENTATION_GUIDE.md) • [Twitter](https://twitter.com/elizaos)
+### 🌐 **Official Links**
+[🌍 Website](https://www.liza-dexagent.xyz/) • [🐦 Twitter/LIZA](https://x.com/Liza_ElizaOS) • [🐦 Twitter/0xblockXBT](https://x.com/0xblockXBT) • [💬 Discord](https://discord.gg/elizaos) • [📖 Docs](./COMPLETE_IMPLEMENTATION_GUIDE.md)
 
-⭐ If you find this helpful, please give us a star! ⭐
+### 📱 **Community Channels**
+[GitHub Issues](https://github.com/liza-elizaos/Liza-DeX-Agent/issues) • [GitHub Discussions](https://github.com/liza-elizaos/Liza-DeX-Agent/discussions) • [ElizaOS Discord](https://discord.gg/elizaos) • [Solana Discord](https://discord.gg/solana)
+
+---
+
+### 💡 **Support & Partnership**
+For enterprise support, partnerships, or custom integrations, visit [liza-dexagent.xyz](https://www.liza-dexagent.xyz/) or reach out on Twitter.
+
+---
+
+⭐ **If you find this helpful, please give us a star!** ⭐
 
 </div>
