@@ -5,11 +5,10 @@
 <div align="center">
 
 [![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-181717?style=flat-square&logo=github)](https://github.com/liza-elizaos/Liza-DeX-Agent)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-FF6B35?style=flat-square)](.)
 [![ElizaOS](https://img.shields.io/badge/ElizaOS-v1.7.0-purple?style=flat-square&logo=openai)](https://github.com/elizaos/eliza)
 [![Solana](https://img.shields.io/badge/Solana-Web3.js-14F195?style=flat-square&logo=solana)](https://solana.com)
-[![Jeju](https://img.shields.io/badge/Jeju%20Network-Ready-0066FF?style=flat-square)](https://jeju.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 
 </div>
