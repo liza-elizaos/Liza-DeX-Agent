@@ -4,10 +4,11 @@ import {
   WalletProvider,
   ConnectionProvider,
 } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+// Note: wallet-adapter-react-ui not installed, using manual button instead
+// import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { Connection, PublicKey } from '@solana/web3.js';
-import '@solana/wallet-adapter-react-ui/styles.css';
+// import '@solana/wallet-adapter-react-ui/styles.css';
 import './index.css';
 
 interface SwapData {
@@ -114,7 +115,7 @@ const SolanaSwapAgent: React.FC = () => {
         throw new Error('Failed to get swap instructions');
       }
 
-      const swapData = await swapResponse.json();
+      const swapInstructions = await swapResponse.json();
 
       // Step 3: Sign and send transaction
       const outputAmount = parseInt(quote.outAmount) / 1e6;
@@ -172,7 +173,7 @@ Transaction submitted for confirmation...`,
                 <p className="text-red-400">❌ Not connected</p>
               )}
             </div>
-            <WalletMultiButton />
+            {/* <WalletMultiButton /> */}
           </div>
         </div>
 

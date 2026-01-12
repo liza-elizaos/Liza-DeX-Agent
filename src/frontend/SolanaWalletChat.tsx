@@ -58,7 +58,20 @@ export function SolanaWalletChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [showFeatures, setShowFeatures] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check wallet connection on mount
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      const savedKey = sessionStorage.getItem('walletPublicKey');
+      if (savedKey) {
+        setWalletPublicKey(savedKey);
+        setShowFeatures(true);
+      }
+    };
+    checkWalletConnection();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -67,41 +80,50 @@ export function SolanaWalletChat() {
   // Connect to Phantom wallet
   const connectWallet = async () => {
     if (!window.solana) {
-      alert('Please install Phantom wallet');
+      setConnectionStatus('error');
+      alert('❌ Phantom wallet not detected. Please install it from https://phantom.app/');
       return;
     }
 
     try {
+      setConnectionStatus('connecting');
       const resp = await window.solana.connect();
       const publicKey = resp.publicKey.toString();
       setWalletPublicKey(publicKey);
       sessionStorage.setItem('walletPublicKey', publicKey);
+      setConnectionStatus('connected');
       
       // Add welcome message
       setMessages([{
         role: 'assistant',
-        content: `✅ Wallet connected!\n\nAddress: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}\n\nYou can now use all Solana features. Try asking me to check your balance!`,
+        content: `✅ Wallet connected successfully!\n\nAddress: ${publicKey.slice(0, 8)}...${publicKey.slice(-8)}\n\nYou can now use all Solana features. Try asking me to "check my balance" or explore other features!`,
         timestamp: new Date(),
       }]);
       setShowFeatures(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Wallet connection failed:', error);
-      alert('Failed to connect wallet');
+      setConnectionStatus('error');
+      const errorMsg = error?.message || String(error);
+      if (!errorMsg.includes('User rejected')) {
+        alert(`❌ Connection failed: ${errorMsg}`);
+      }
     }
   };
 
   // Disconnect wallet
   const disconnectWallet = async () => {
-    if (window.solana?.disconnect) {
-      try {
+    try {
+      if (window.solana?.disconnect) {
         await window.solana.disconnect();
-      } catch (error) {
-        console.error('Disconnect error:', error);
       }
+    } catch (error) {
+      console.error('Disconnect error:', error);
     }
+    sessionStorage.removeItem('walletPublicKey');
     setWalletPublicKey(null);
     setMessages([]);
     setShowFeatures(true);
+    setConnectionStatus('idle');
   };
 
   // Send message to ElizaOS agent
@@ -122,7 +144,7 @@ export function SolanaWalletChat() {
       // Send to ElizaOS API with walletPublicKey in context
       // Use relative path for production, localhost for development
       const apiUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000/api/chat'
+        ? `/api/chat`
         : '/api/chat';
       
       const response = await fetch(apiUrl, {
@@ -133,29 +155,47 @@ export function SolanaWalletChat() {
           walletPublicKey: walletPublicKey || undefined,
           message: messageText,
         }),
+        signal: AbortSignal.timeout(30000), // 30 second timeout
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
+      }
 
       const data = await response.json();
       
       // Add assistant response
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: data.text || data.response || 'No response',
+        content: data.text || data.response || '❌ No response received from server',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
+      const errorMsg = error?.message || String(error);
+      let userFriendlyMsg = '❌ Error: ';
+      
+      if (errorMsg.includes('Failed to fetch')) {
+        userFriendlyMsg += 'Cannot connect to server. Make sure the server is running on port 3000.';
+      } else if (errorMsg.includes('timeout')) {
+        userFriendlyMsg += 'Request timeout. The server may be overloaded. Please try again.';
+      } else {
+        userFriendlyMsg += errorMsg;
+      }
+
       setMessages((prev) => [
         ...prev,
         { 
           role: 'assistant', 
-          content: '❌ Error: Failed to get response. Make sure the server is running on port 3000.',
+          content: userFriendlyMsg,
           timestamp: new Date(),
         },
       ]);
     } finally {
       setIsLoading(false);
+      setShowFeatures(true);
     }
   };
 

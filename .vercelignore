@@ -1,0 +1,8 @@
+api/agent/
+api/defi.ts
+api/debug-env.ts
+api/polymarket.ts
+api/portfolio-inline.ts
+api/relay-transaction.ts
+api/swap-utils.ts
+api/wallet-connect.ts

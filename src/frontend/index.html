@@ -8,7 +8,7 @@
       // This will be injected by the server in production
       window.ELIZA_CONFIG = {
         agentId: 'test-agent-id',
-        apiBase: 'http://localhost:3000',
+        apiBase: `${window.location.protocol}//${window.location.host}`,
       };
     </script>
   </head>

@@ -95,7 +95,7 @@ async function analyzePortfolio(
       new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfuM32jneSYP1daB'),
       {
         filters,
-        encoding: 'jsonParsed',
+        encoding: 'base64',
       }
     );
 

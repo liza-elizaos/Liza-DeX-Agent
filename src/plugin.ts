@@ -18,6 +18,9 @@ import {
 } from '@elizaos/core';
 import { z } from 'zod';
 import portfolioAction from './plugins/portfolio-action';
+import { tokenLaunchAction } from './plugins/token-launch-action';
+import { autoFunTokenLaunchAction } from './plugins/autofun-token-launch';
+import { rewardActions, setupCreatorRewards } from './plugins/creator-rewards';
 
 /**
  * Define the configuration schema for the plugin with the following properties:
@@ -279,7 +282,7 @@ const plugin: Plugin = {
     ],
   },
   services: [StarterService],
-  actions: [helloWorldAction, portfolioAction],
+  actions: [helloWorldAction, portfolioAction, tokenLaunchAction, autoFunTokenLaunchAction, ...rewardActions],
   providers: [helloWorldProvider],
 };
 

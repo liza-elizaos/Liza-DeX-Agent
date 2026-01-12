@@ -5,6 +5,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { UUID } from '@elizaos/core';
 import { signAndSendBase64Tx } from './phantom-sign-and-send';
 import PortfolioDashboard from './PortfolioDashboard';
+import PumpFunIntegration from './PumpFunIntegration';
+import TokenLaunchForm from './TokenLaunchForm';
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showPumpFun, setShowPumpFun] = useState(false);
+  const [showLaunch, setShowLaunch] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string>(() => {
     // Try to restore wallet from localStorage
     if (typeof window !== 'undefined') {
@@ -94,6 +98,38 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
     checkWalletConnection();
   }, []);
 
+  const handleDisconnectWallet = async () => {
+    try {
+      // Clear localStorage
+      localStorage.removeItem('phantom_wallet');
+      setWalletAddress('');
+      
+      // Try to disconnect from Phantom if available
+      const anyWindow = window as any;
+      if (anyWindow.phantom?.solana?.disconnect) {
+        try {
+          await anyWindow.phantom.solana.disconnect();
+          console.log('[WALLET] Disconnected from Phantom');
+        } catch (error) {
+          console.log('[WALLET] Manual disconnect not needed:', error);
+        }
+      }
+      
+      // Show disconnection message
+      const disconnectMsg: Message = {
+        id: `msg_${Date.now()}`,
+        role: 'assistant',
+        content: `✅ Wallet disconnected successfully! You can now connect a different wallet.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, disconnectMsg]);
+      
+    } catch (error) {
+      console.error('[WALLET] Disconnection error:', error);
+      alert('Disconnection failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   const handleConnectWallet = async () => {
     try {
       const anyWindow = window as any;
@@ -139,7 +175,7 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
         try {
           // Use relative path for production, localhost for development
           const apiUrl = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000/api/chat'
+            ? '/api/chat'
             : '/api/chat';
           console.log('[WALLET] Calling API:', apiUrl, 'with message:', `check my balance ${address}`);
           
@@ -214,7 +250,7 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
 
       // Use relative path for production, localhost for development
       const apiUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000/api/chat'
+        ? '/api/chat'
         : '/api/chat';
 
       console.log('[CHAT] Sending request:', {
@@ -328,13 +364,24 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
           <p className="text-sm text-purple-300">Agent ID: {agentId}</p>
         </div>
         
-        {/* Wallet Connect Button - ALWAYS SHOW */}
-        <div className="flex-shrink-0">
+        {/* Wallet Connect/Disconnect Button */}
+        <div className="flex-shrink-0 flex items-center gap-3">
           {walletAddress ? (
-            <div className="bg-purple-700 px-4 py-2 rounded-lg text-sm font-mono flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              ✅ {walletAddress.slice(0, 8)}...{walletAddress.slice(-8)}
-            </div>
+            <>
+              <div className="bg-purple-700 px-4 py-2 rounded-lg text-sm font-mono flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                ✅ {walletAddress.slice(0, 8)}...{walletAddress.slice(-8)}
+              </div>
+              <button
+                onClick={handleDisconnectWallet}
+                type="button"
+                className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all duration-200"
+                style={{ cursor: 'pointer' }}
+                title="Disconnect current wallet and connect a new one"
+              >
+                🔓 Disconnect
+              </button>
+            </>
           ) : (
             <button
               onClick={handleConnectWallet}
@@ -414,14 +461,33 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
           <div className="w-96 border-l border-purple-800 bg-gray-950 overflow-y-auto">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">📊 Portfolio</h2>
-                <button
-                  onClick={() => setShowPortfolio(!showPortfolio)}
-                  className="text-xs bg-purple-700 px-2 py-1 rounded hover:bg-purple-600"
-                >
-                  {showPortfolio ? 'Hide' : 'Show'}
-                </button>
+                <h2 className="text-lg font-bold">📊 Features</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowLaunch(!showLaunch)}
+                    className="text-xs bg-green-600 px-2 py-1 rounded hover:bg-green-500"
+                    title="Launch Token"
+                  >
+                    🚀
+                  </button>
+                  <button
+                    onClick={() => setShowPumpFun(!showPumpFun)}
+                    className="text-xs bg-orange-600 px-2 py-1 rounded hover:bg-orange-500"
+                    title="Pump.fun Trading Dashboard"
+                  >
+                    📈
+                  </button>
+                  <button
+                    onClick={() => setShowPortfolio(!showPortfolio)}
+                    className="text-xs bg-purple-700 px-2 py-1 rounded hover:bg-purple-600"
+                    title="Portfolio"
+                  >
+                    💼
+                  </button>
+                </div>
               </div>
+              {showLaunch && <TokenLaunchForm />}
+              {showPumpFun && <PumpFunIntegration walletAddress={walletAddress} />}
               {showPortfolio && walletAddress && (
                 <PortfolioDashboard walletAddress={walletAddress} />
               )}

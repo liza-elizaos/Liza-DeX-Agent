@@ -8,7 +8,8 @@
  *   - "check balance"
  */
 
-import { performSwap, getBalance } from '../../swap-implementation.ts';
+// Note: swap-implementation.ts is a separate module with performSwap and getBalance functions
+// import { performSwap, getBalance } from '../../swap-implementation.ts';
 
 // Action handler for token swaps
 async function handleSwapAction(params: {
@@ -25,17 +26,17 @@ async function handleSwapAction(params: {
   } = params;
 
   try {
-    const result = await performSwap(
-      fromToken,
-      toToken,
-      amount,
-      walletAddress
-    );
+    // Note: performSwap function not yet implemented
+    // const result = await performSwap(
+    //   fromToken,
+    //   toToken,
+    //   amount,
+    //   walletAddress
+    // );
 
     return {
-      success: result.success,
-      message: result.message || result.error,
-      txHash: result.txHash,
+      success: false,
+      message: 'Swap functionality not yet implemented',
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
@@ -52,11 +53,12 @@ async function handleBalanceAction(params: {
   walletAddress?: string;
 }): Promise<any> {
   try {
-    const balance = await getBalance();
+    // Note: getBalance function not yet implemented
+    // const balance = await getBalance();
+    
     return {
-      success: true,
-      balance: balance.toFixed(6),
-      unit: 'SOL',
+      success: false,
+      error: 'Balance checking not yet implemented',
       timestamp: new Date().toISOString(),
     };
   } catch (error) {

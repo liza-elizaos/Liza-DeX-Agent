@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "name": "liza-token-launcher",
+  "public": true,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "express",
+  "env": {
+    "SOLANA_RPC_URL": "@solana_rpc_url",
+    "PUMPPORTAL_API_KEY": "@pumpportal_api_key",
+    "OPENROUTER_API_KEY": "@openrouter_api_key",
+    "NODE_ENV": "production"
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "functions": {
+    "api/server.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}

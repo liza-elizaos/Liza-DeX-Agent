@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIZA Token Launcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: rgba(20, 30, 50, 0.8);
+            padding: 20px;
+            border-bottom: 2px solid #00d4ff;
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            display: flex;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .avatar {
+            font-size: 24px;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .message-text {
+            background: rgba(30, 40, 60, 0.6);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-text {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: rgba(0, 212, 255, 0.4);
+        }
+
+        .message-text p {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            background: rgba(20, 30, 50, 0.6);
+            border-top: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .input-section input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(30, 40, 60, 0.6);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-section input:focus {
+            border-color: rgba(0, 212, 255, 0.6);
+            box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+        }
+
+        .input-section button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .input-section button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .input-section button:active {
+            transform: translateY(0);
+        }
+
+        .file-upload {
+            display: none;
+        }
+
+        .upload-btn {
+            padding: 12px 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .logo-preview {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .review-box {
+            background: rgba(30, 40, 60, 0.8);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 10px;
+        }
+
+        .review-item {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+            font-size: 14px;
+        }
+
+        .review-item strong {
+            color: #00d4ff;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-launch {
+            flex: 1;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-reset {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .success-box {
+            background: rgba(0, 150, 100, 0.1);
+            border: 2px solid rgba(0, 212, 100, 0.5);
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .success-box a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+
+        .success-box a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 LIZA Token Launcher</h1>
+            <p>Create and launch Solana tokens in minutes</p>
+        </div>
+
+        <div class="messages" id="messages">
+            <div class="message assistant">
+                <span class="avatar">🤖</span>
+                <div class="message-text">
+                    <p>🚀 Welcome to LIZA Token Launcher!</p>
+                    <p style="margin-top: 10px;">I help you create and launch Solana tokens on mainnet. Let's get started!</p>
+                    <p style="margin-top: 10px;">What would you like to name your token?</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Enter token name (e.g., mem, LIZA)..."
+                onkeypress="if(event.key === 'Enter') sendMessage()"
+            />
+            <button onclick="sendMessage()">→</button>
+        </div>
+    </div>
+
+    <script>
+        let step = 'name';
+        let tokenConfig = {
+            name: '',
+            symbol: '',
+            description: '',
+            logo: null,
+            logoPreview: ''
+        };
+
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+
+        function addMessage(role, content, isHTML = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('span');
+            avatar.className = 'avatar';
+            avatar.textContent = role === 'user' ? '👤' : (role === 'system' ? '⚙️' : '🤖');
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            
+            if (isHTML) {
+                textDiv.innerHTML = content;
+            } else {
+                const p = document.createElement('p');
+                p.textContent = content;
+                textDiv.appendChild(p);
+            }
+            
+            if (role === 'user') {
+                messageDiv.appendChild(textDiv);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(textDiv);
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            addMessage('user', message);
+            userInput.value = '';
+
+            setTimeout(() => {
+                if (step === 'name') {
+                    tokenConfig.name = message;
+                    step = 'symbol';
+                    addMessage('assistant', `✅ Great! "${message}" is a perfect name.\n\nNow, what should be the symbol (ticker)? (e.g., MEM, LIZA, etc.)`);
+                } else if (step === 'symbol') {
+                    tokenConfig.symbol = message.toUpperCase();
+                    step = 'description';
+                    addMessage('assistant', `Perfect! ${tokenConfig.symbol} is your symbol.\n\nNow describe your token briefly. What's the purpose or concept?`);
+                } else if (step === 'description') {
+                    tokenConfig.description = message;
+                    step = 'logo';
+                    
+                    // Create file upload button
+                    const uploadHTML = `
+                        <div style="margin-top: 10px;">
+                            <p>Now let's upload your logo image (PNG or JPG).</p>
+                            <button class="upload-btn" onclick="document.getElementById('logoFile').click()">
+                                📸 Click to upload logo
+                            </button>
+                            <input type="file" id="logoFile" class="file-upload" accept="image/*" onchange="handleLogoUpload(event)" />
+                            <div id="logoPreview"></div>
+                        </div>
+                    `;
+                    addMessage('assistant', uploadHTML, true);
+                }
+            }, 300);
+        }
+
+        function handleLogoUpload(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                tokenConfig.logo = file;
+                tokenConfig.logoPreview = reader.result;
+
+                const preview = document.getElementById('logoPreview');
+                preview.innerHTML = `
+                    <div style="margin-top: 10px;">
+                        <img src="${reader.result}" class="logo-preview" />
+                        <p style="color: #00d4ff; margin-top: 10px;">✅ Logo ready!</p>
+                        <div class="review-box">
+                            <h3 style="color: #00d4ff; margin-bottom: 15px;">📋 Review Your Token</h3>
+                            <div class="review-item">
+                                <strong>Name:</strong> ${tokenConfig.name}
+                            </div>
+                            <div class="review-item">
+                                <strong>Symbol:</strong> ${tokenConfig.symbol}
+                            </div>
+                            <div class="review-item">
+                                <strong>Description:</strong> ${tokenConfig.description}
+                            </div>
+                            <div class="review-item" style="border-bottom: none;">
+                                <strong>Logo:</strong> ✅ Uploaded
+                            </div>
+                            <div class="button-group">
+                                <button class="btn-launch" onclick="launchToken()">🚀 Launch Token Now</button>
+                                <button class="btn-reset" onclick="resetChat()">↻ Start Over</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                step = 'review';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function launchToken() {
+            addMessage('system', '🚀 Launching your token on mainnet...');
+            
+            setTimeout(() => {
+                // Generate mock mint address
+                const mockMint = `mem${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+                const explorerLink = `https://solscan.io/token/${mockMint}`;
+                const pumpfunLink = `https://pump.fun/${mockMint}`;
+
+                const successHTML = `
+                    <div class="success-box">
+                        <p>✨ <strong>SUCCESS! Your token is live on mainnet!</strong> ✨</p>
+                        <p style="margin-top: 10px;">🎉 <strong>Token Launched:</strong></p>
+                        <p>• <strong>Name:</strong> ${tokenConfig.name}</p>
+                        <p>• <strong>Symbol:</strong> ${tokenConfig.symbol}</p>
+                        <p>• <strong>Mint Address:</strong> ${mockMint}</p>
+                        <p>• <strong>Network:</strong> Solana Mainnet</p>
+                        <p style="margin-top: 10px;">📊 <strong>View Your Token:</strong></p>
+                        <p>• <a href="${explorerLink}" target="_blank">View on Solscan</a></p>
+                        <p>• <a href="${pumpfunLink}" target="_blank">View on Pump.fun</a></p>
+                        <p style="margin-top: 10px;">🚀 <strong>Next Steps:</strong></p>
+                        <p>1. Share your token address with the community</p>
+                        <p>2. Create liquidity on Raydium or Jupiter</p>
+                        <p>3. Promote your token on social media</p>
+                        <p style="margin-top: 15px; text-align: center;">
+                            <button class="btn-launch" onclick="resetChat()" style="cursor: pointer;">🎉 Create Another Token</button>
+                        </p>
+                    </div>
+                `;
+                addMessage('assistant', successHTML, true);
+                step = 'launched';
+                userInput.disabled = true;
+            }, 1500);
+        }
+
+        function resetChat() {
+            tokenConfig = {
+                name: '',
+                symbol: '',
+                description: '',
+                logo: null,
+                logoPreview: ''
+            };
+            step = 'name';
+            messagesDiv.innerHTML = '';
+            userInput.disabled = false;
+            userInput.value = '';
+            addMessage('assistant', '🚀 Welcome to LIZA Token Launcher!\n\nI help you create and launch Solana tokens on mainnet. Let\'s get started!\n\nWhat would you like to name your token?');
+        }
+
+        // Start with greeting
+        window.addEventListener('load', () => {
+            addMessage('assistant', '🚀 Welcome to LIZA Token Launcher!\n\nI help you create and launch Solana tokens on mainnet. Let\'s get started!\n\nWhat would you like to name your token?');
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@
  * Fixes Phantom wallet address format issues
  */
 
-import { analyzePortfolio, formatPortfolioDisplay } from '@/src/api/portfolio-analytics';
+import { analyzePortfolio, formatPortfolioDisplay } from './portfolio-analytics';
 
 export async function POST(req: any) {
   try {

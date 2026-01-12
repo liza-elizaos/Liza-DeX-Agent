@@ -31,22 +31,6 @@ export const portfolioAction: Action = {
     'analyze portfolio',
   ],
   description: 'Shows your complete portfolio with real-time valuations',
-  examples: [
-    [
-      {
-        user: 'User',
-        content: {
-          text: 'show my portfolio',
-        },
-      },
-      {
-        user: 'LIZA',
-        content: {
-          text: '💼 **PORTFOLIO ANALYSIS**\n\n📍 Wallet: CMVrzd...\n💰 **Total Value: $X,XXX.XX**',
-        },
-      },
-    ],
-  ],
   validate: async (_runtime: IAgentRuntime, _message: Memory, _state?: State): Promise<boolean> => {
     return true;
   },
@@ -80,11 +64,6 @@ export const portfolioAction: Action = {
         }
       }
 
-      // Source 3: Check agent runtime user data
-      if (!walletAddress && runtime?.userId) {
-        walletAddress = (runtime as any).userWallet || (runtime as any).walletAddress;
-      }
-
       // Source 4: Fallback to environment wallet
       if (!walletAddress) {
         walletAddress = process.env.SOLANA_PUBLIC_KEY || 'CMVrzdso4SShQm2irrc7jMCN9Vw5QxXvrZKB79cYPPJT';
@@ -113,8 +92,6 @@ export const portfolioAction: Action = {
       }
 
       return {
-        user: _message.userId,
-        content: content,
         success: true,
       };
     } catch (error) {
@@ -130,8 +107,6 @@ export const portfolioAction: Action = {
       }
 
       return {
-        user: _message.userId,
-        content: content,
         success: false,
       };
     }
