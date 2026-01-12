@@ -1,6 +1,6 @@
 # 🤖 LIZA - Autonomous Solana AI Assistant for elizaOS
 
-> **Enterprise-Grade AI Agent for Solana & Jeju Network Token Management & Trading**
+> **First Decentralized AI Agent for Solana & Jeju Network Token/Wallet Management & Trading**
 
 ![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-blue?logo=github&style=flat-square) 
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
