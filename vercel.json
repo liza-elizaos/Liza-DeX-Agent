@@ -1,26 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "framework": "other",
   "outputDirectory": "dist",
-  "env": [
-    "DATABASE_URL",
-    "HELIUS_API_KEY",
-    "HELIUS_RPC",
-    "NEXT_PUBLIC_SOLANA_RPC_URL",
-    "NEXT_PUBLIC_SOLANA_NETWORK"
-  ],
-  "functions": {
-    "model/**/*.ts": {
-      "runtime": "nodejs20.x",
-      "memory": 3008,
-      "maxDuration": 60
-    },
-    "api/**/*.ts": {
-      "runtime": "nodejs20.x",
-      "memory": 3008,
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
