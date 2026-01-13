@@ -8,6 +8,8 @@ import { ConnectionProvider, WalletProvider, useConnection, useWallet } from '@s
 import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import '@solana/wallet-adapter-react-ui/styles.css';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { handleChatCommand } from './chatCommands';
 import { clusterApiUrl } from '@solana/web3.js';
 
 const queryClient = new QueryClient();
@@ -74,7 +76,27 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
     setIsLoading(true);
 
     try {
-      // If user is asking about balance/wallet and has connected, add their address
+      // First check if this is a front-end handled command
+      const { connection } = useConnection ? ({} as any) : { connection: undefined };
+      // Note: useConnection cannot be called conditionally; instead access connection via hook outside.
+      // We'll access connection via a global fallback below.
+
+      // Basic local command handling
+      const conn = (window as any).__LIZA_CONNECTION || null;
+      const cmdResult = await handleChatCommand(input, { connection: conn, wallet: { publicKey, connect, connecting, connected } as any });
+      if (cmdResult.handled) {
+        const assistantMessage: Message = {
+          id: `msg_${Date.now()}_assistant_cmd`,
+          role: 'assistant',
+          content: cmdResult.reply || 'Done.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setIsLoading(false);
+        return;
+      }
+
+      // If not handled locally, send to backend chat API
       let messageToSend = input;
       if ((input.toLowerCase().includes('balance') || input.toLowerCase().includes('wallet')) && publicKey && !input.includes(publicKey.toBase58())) {
         messageToSend = `${input} ${publicKey.toBase58()}`;
