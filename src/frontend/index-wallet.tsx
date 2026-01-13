@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { UUID } from '@elizaos/core';
 import { WalletAdapterNetwork, WalletError } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider, useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import '@solana/wallet-adapter-react-ui/styles.css';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { clusterApiUrl } from '@solana/web3.js';
 
@@ -136,22 +138,7 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
         
         {/* Wallet Connect Button - Right Side */}
         <div className="flex-shrink-0 flex items-center">
-          {connected && publicKey ? (
-            <div className="bg-purple-700 px-4 py-2 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              <span className="font-mono">
-                {publicKey.toBase58().slice(0, 6)}...{publicKey.toBase58().slice(-6)}
-              </span>
-            </div>
-          ) : (
-            <button
-              onClick={connect}
-              disabled={connecting}
-              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-semibold transition-all whitespace-nowrap text-sm"
-            >
-              {connecting ? '⏳ Connecting...' : '🔗 Connect Phantom'}
-            </button>
-          )}
+          <WalletMultiButton />
         </div>
       </div>
 
@@ -247,7 +234,7 @@ function ExampleRoute() {
   try {
     const network = WalletAdapterNetwork.Mainnet;
     const endpoint = clusterApiUrl(network);
-    const wallets = [new PhantomWalletAdapter()];
+    const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
     const onError = (error: WalletError) => {
       console.error('[WALLET ERROR]', error);
@@ -257,7 +244,9 @@ function ExampleRoute() {
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
-            <ChatComponent agentId={agentId as UUID} />
+            <WalletModalProvider>
+              <ChatComponent agentId={agentId as UUID} />
+            </WalletModalProvider>
           </WalletProvider>
         </ConnectionProvider>
       </QueryClientProvider>
