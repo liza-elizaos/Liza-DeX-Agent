@@ -1,0 +1,565 @@
+# 🤖 LIZA - Autonomous Solana AI Assistant for elizaOS
+
+> **Enterprise-Grade AI Agent for Solana Token Management & Trading**
+
+![GitHub](https://img.shields.io/badge/GitHub-liza--elizaos-blue?logo=github&style=flat-square) 
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![ElizaOS](https://img.shields.io/badge/ElizaOS-v1.7.0-purple?style=flat-square)
+![Solana](https://img.shields.io/badge/Solana-Web3.js-14F195?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square)
+
+LIZA is a production-ready autonomous AI agent that seamlessly integrates with the [ElizaOS](https://github.com/elizaos/eliza) framework to provide comprehensive Solana blockchain capabilities including token launches, real-time trading, portfolio management, and creator reward automation.
+
+---
+
+## ✨ Core Features
+
+### 🚀 **Token Launch & Management**
+- Launch SPL tokens with automated bonding curve mechanics
+- AutoFun integration for smooth Raydium graduation
+- Real-time token creation with customizable parameters
+- Creator fee configuration and automated distribution
+- [Token Creation Docs](#token-creation)
+
+### 💱 **Intelligent Trading**
+- Multi-hop swaps via [Jupiter Protocol](https://jup.ag)
+- Real-time price aggregation and slippage protection
+- Support for 1000+ SPL tokens on Solana
+- Advanced order routing and execution
+- [Trading Integration Guide](#trading-integration)
+
+### 📊 **Portfolio Analytics**
+- Real-time wallet analysis across all token holdings
+- Multi-token valuations with SOL pricing
+- Portfolio rebalancing recommendations
+- Historical performance tracking
+- [Portfolio API Reference](#portfolio-apis)
+
+### 👥 **Creator Rewards System**
+- Automated fee collection from token launches
+- Wallet aggregation and reward distribution
+- Real-time reward tracking and claiming
+- Multi-wallet support
+- [Creator Setup Guide](#creator-configuration)
+
+### 🧠 **AI Intelligence**
+- Natural language token management commands
+- Market trend analysis and predictions
+- Automated trading strategies
+- Risk assessment and portfolio optimization
+- Powered by [ElizaOS](https://github.com/elizaos/eliza) AI framework
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Version |
+|-----------|-----------|---------|
+| **Framework** | [ElizaOS](https://github.com/elizaos/eliza) | v1.7.0 |
+| **Blockchain** | [Solana Web3.js](https://solana-labs.github.io/solana-web3.js/) | v1.98.4+ |
+| **Token Standard** | [SPL Token](https://spl.solana.com/token) | v0.4.14+ |
+| **DEX Integration** | [Jupiter Protocol](https://jup.ag) | Latest |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) | 5.0+ |
+| **Runtime** | [Node.js](https://nodejs.org/) / [Bun](https://bun.sh/) | 18+ / Latest |
+| **API Backend** | [Vercel Serverless](https://vercel.com) | Latest |
+| **Frontend** | [React](https://react.dev) + [Tailwind CSS](https://tailwindcss.com) | 18+ |
+| **Database** | [PostgreSQL](https://www.postgresql.org/) (optional) | 12+ |
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Node.js** 18+ ([Download](https://nodejs.org/))
+- **Bun** (Optional, recommended runtime - [Install](https://bun.sh/))
+- **Git** ([Download](https://git-scm.com/))
+- Solana wallet with devnet/mainnet SOL
+
+### Installation (5 minutes)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/liza-elizaos/Liza-DeX-Agent.git
+cd Liza-DeX-Agent
+
+# 2. Install dependencies
+npm install
+# OR with Bun
+bun install
+
+# 3. Build the project
+npm run build
+
+# 4. Start development server (runs on http://localhost:3001)
+npm run dev
+```
+
+### Environment Configuration
+
+Create `.env.local` in the project root:
+
+```env
+# Solana RPC (use mainnet-beta for production)
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+# Or use Helius for faster speeds
+HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+
+# Your Solana wallet (base58 encoded private key)
+SOLANA_PRIVATE_KEY=your_base58_private_key_here
+
+# Your wallet public address
+SOLANA_PUBLIC_KEY=your_solana_wallet_address
+
+# Optional: API configuration
+API_BASE_URL=http://localhost:3001
+NODE_ENV=development
+PORT=3001
+
+# Optional: Bags FM API (for token launches)
+BAGS_FM_API_KEY=your_api_key_here
+```
+
+**🔐 Security Note:** Never commit `.env.local` to version control. Use `.env.example` for team sharing.
+
+---
+
+## 📚 API Reference
+
+### Base URL
+- **Development:** `http://localhost:3001`
+- **Production:** Your deployed URL on [Vercel](https://vercel.com)
+
+### Token Management APIs
+
+#### Create SPL Token
+```bash
+POST /model/token-create
+Content-Type: application/json
+
+{
+  "name": "MyToken",
+  "symbol": "MTK",
+  "decimals": 6,
+  "initialSupply": 1000000,
+  "imageUrl": "https://example.com/logo.png"
+}
+```
+**Response:** `{ mint: "...", tx: "...", wallet: "..." }`
+
+#### Launch Token on AutoFun
+```bash
+POST /model/token-launch
+Content-Type: application/json
+
+{
+  "mint": "token_mint_address",
+  "initialBuyLamports": 1000000,
+  "wallet": "creator_wallet_address"
+}
+```
+**Response:** `{ tokenMint: "...", bondingCurve: "...", creatorRewarded: true }`
+
+#### Buy Token via Jupiter Swap
+```bash
+POST /model/token-buy
+Content-Type: application/json
+
+{
+  "mint": "token_mint_address",
+  "amountInLamports": 5000000,
+  "wallet": "buyer_wallet_address"
+}
+```
+**Response:** `{ tx: "...", amountOut: "...", price: 0.00123 }`
+
+### Portfolio APIs
+
+#### Get Wallet Portfolio
+```bash
+GET /model/portfolio?wallet=wallet_address
+
+# Response:
+{
+  "wallet": "...",
+  "totalSOL": 10.5,
+  "totalUSD": 1512.75,
+  "tokens": [
+    {
+      "mint": "...",
+      "symbol": "USDC",
+      "amount": 1000,
+      "priceUSD": 1.0,
+      "valueUSD": 1000
+    }
+  ]
+}
+```
+
+#### Portfolio Analytics
+```bash
+POST /model/portfolio-analytics
+Content-Type: application/json
+
+{
+  "wallet": "wallet_address",
+  "timeframe": "30d"
+}
+```
+
+### Creator APIs
+
+#### Get Creator Rewards
+```bash
+GET /model/creator-rewards?wallet=wallet_address
+
+# Response:
+{
+  "wallet": "...",
+  "totalRewards": 2.5,
+  "pendingClaims": 0.75,
+  "claimedRewards": 1.75,
+  "launches": 3
+}
+```
+
+#### Claim Rewards
+```bash
+POST /model/claim-rewards
+Content-Type: application/json
+
+{
+  "wallet": "creator_wallet_address"
+}
+```
+
+### Chat & AI APIs
+
+#### Chat Endpoint
+```bash
+POST /model/chat
+Content-Type: application/json
+
+{
+  "message": "Launch a token called MyToken",
+  "wallet": "wallet_address",
+  "context": "optional_context"
+}
+```
+
+**See [Complete API Documentation](./COMPLETE_IMPLEMENTATION_GUIDE.md) for all endpoints and response schemas**
+
+---
+
+## 📖 Comprehensive Guides
+
+### Token Creation
+Follow the [Token Creation Guide](./TOKEN_CREATION_GUIDE.md) for:
+- Creating SPL tokens with custom metadata
+- Setting initial supply and decimals
+- Uploading custom token images
+- Verifying token on [Solscan](https://solscan.io)
+
+### Trading Integration
+Check [Trading Integration Guide](./TRADING_INTEGRATION_GUIDE.md) for:
+- Executing swaps via Jupiter Protocol
+- Setting slippage tolerance
+- Handling price feeds
+- Multi-hop routing
+
+### Portfolio Management
+Read [Portfolio API Reference](./PORTFOLIO_MANAGEMENT_GUIDE.md) for:
+- Real-time portfolio analysis
+- Historical performance tracking
+- Risk assessment
+- Portfolio recommendations
+
+### Creator Configuration
+See [Creator Rewards Setup](./CREATOR_REWARDS_SETUP.md) for:
+- Setting up creator wallets
+- Configuring fee structures
+- Claiming accumulated rewards
+- Multi-wallet management
+
+### Deployment
+Follow [Deployment Guide](./DEPLOYMENT.md) for:
+- Deploying to [Vercel](https://vercel.com)
+- Mainnet configuration
+- Environment secrets
+- Monitoring and logging
+
+---
+
+## 🏗️ Project Structure
+
+```
+Liza-DeX-Agent/
+├── model/                          # API handlers (formerly api/)
+│   ├── chat.ts                     # AI chat endpoint
+│   ├── balance.ts                  # Wallet balance checker
+│   ├── token-create.ts             # SPL token creation
+│   ├── token-launch.ts             # AutoFun launch handler
+│   ├── token-buy.ts                # Token purchase handler
+│   ├── swap.ts                     # Jupiter swap integration
+│   ├── wallet-connect.ts           # Wallet connection handler
+│   ├── portfolio.ts                # Portfolio analytics
+│   ├── portfolio-inline.ts         # Inline portfolio data
+│   ├── creator-rewards.ts          # Creator reward system
+│   ├── bags-api.ts                 # Bags FM integration
+│   └── ...more handlers
+├── src/
+│   ├── index.ts                    # Main entry point
+│   ├── character.ts                # AI character definition
+│   ├── model-config.ts             # Model configurations
+│   ├── plugin.ts                   # Plugin registration
+│   ├── frontend/                   # React components
+│   │   ├── SolanaWalletChat.tsx
+│   │   ├── index.tsx
+│   │   └── ...
+│   ├── plugins/                    # ElizaOS plugins
+│   ├── characters/                 # Character definitions
+│   └── __tests__/                  # Test suites
+├── components/
+│   ├── CreatorDashboard.tsx        # Creator UI
+│   ├── TokenLaunchApp.tsx          # Token launch UI
+│   └── ...
+├── pages/
+│   ├── api/                        # API routes
+│   ├── dashboard.tsx               # Dashboard page
+│   └── index.tsx                   # Home page
+├── pump-dashboard/                 # Pump.fun dashboard
+├── token-launcher/                 # Token launcher module
+├── server.ts                       # Express/Fastify server
+├── package.json                    # Dependencies
+├── tsconfig.json                   # TypeScript config
+├── tailwind.config.js              # Tailwind styling
+└── README.md                       # This file
+```
+
+---
+
+## 💻 Development Commands
+
+```bash
+# Install dependencies
+npm install              # npm
+bun install             # Bun (faster)
+
+# Development
+npm run dev             # Start dev server on port 3001
+npm run dev:watch      # Dev with file watcher
+
+# Building
+npm run build           # Build for production
+npm run type-check      # TypeScript type checking
+
+# Code Quality
+npm run format          # Format code with Prettier
+npm run lint            # ESLint checking
+npm run test            # Run unit tests
+
+# Database (if using PostgreSQL)
+npm run db:migrate      # Run migrations
+npm run db:seed         # Seed sample data
+```
+
+## 🧪 Testing
+
+### Run All Tests
+```bash
+npm test
+# or with Bun
+bun test
+```
+
+### Test Structure
+- **Unit Tests:** `src/__tests__/*.test.ts`
+- **E2E Tests:** `src/__tests__/e2e/*.e2e.ts`
+- **Integration Tests:** `src/__tests__/integration.test.ts`
+
+### Example Test
+```typescript
+// src/__tests__/token-create.test.ts
+import { describe, it, expect } from 'bun:test';
+import { createToken } from '../model/token-create';
+
+describe('Token Creation', () => {
+  it('should create SPL token successfully', async () => {
+    const result = await createToken({
+      name: 'TestToken',
+      symbol: 'TEST',
+      decimals: 6
+    });
+    expect(result.mint).toBeDefined();
+    expect(result.tx).toBeDefined();
+  });
+});
+```
+
+---
+
+## 🚀 Deployment
+
+### Deploy to Vercel (Recommended)
+
+```bash
+# 1. Install Vercel CLI
+npm i -g vercel
+
+# 2. Build locally
+npm run build
+
+# 3. Deploy
+vercel deploy --prod
+
+# 4. Set environment variables in Vercel dashboard:
+# - SOLANA_RPC_URL
+# - SOLANA_PRIVATE_KEY
+# - SOLANA_PUBLIC_KEY
+# - HELIUS_RPC_URL
+# - BAGS_FM_API_KEY
+```
+
+### Deploy to Self-Hosted
+
+```bash
+# Build
+npm run build
+
+# Start production server
+NODE_ENV=production npm run start
+
+# Or with PM2
+pm2 start dist/server.js --name "liza-agent"
+```
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t liza-agent .
+
+# Run container
+docker run -p 3001:3001 \
+  -e SOLANA_RPC_URL=your_rpc_url \
+  -e SOLANA_PRIVATE_KEY=your_key \
+  liza-agent
+```
+
+---
+
+## 🔗 Real-World Integration Examples
+
+### Example 1: Create & Launch Token
+```typescript
+import fetch from 'node-fetch';
+
+const createAndLaunchToken = async () => {
+  // Step 1: Create token
+  const createRes = await fetch('http://localhost:3001/model/token-create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'MyAwesomeToken',
+      symbol: 'MAT',
+      decimals: 6,
+      initialSupply: 1000000,
+      imageUrl: 'https://example.com/logo.png'
+    })
+  });
+  
+  const { mint, tx } = await createRes.json();
+  console.log(`✅ Token created: ${mint}`);
+  console.log(`📜 Transaction: ${tx}`);
+  
+  // Step 2: Launch on AutoFun
+  const launchRes = await fetch('http://localhost:3001/model/token-launch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mint,
+      initialBuyLamports: 2000000,
+      wallet: 'YOUR_WALLET_ADDRESS'
+    })
+  });
+  
+  const { tokenMint, bondingCurve } = await launchRes.json();
+  console.log(`🚀 Token launched! View on Solscan:`);
+  console.log(`https://solscan.io/token/${tokenMint}`);
+};
+
+createAndLaunchToken();
+```
+
+### Example 2: Get Portfolio Analysis
+```typescript
+const getPortfolio = async (walletAddress) => {
+  const res = await fetch(
+    `http://localhost:3001/model/portfolio?wallet=${walletAddress}`
+  );
+  
+  const portfolio = await res.json();
+  console.log(`💰 Portfolio Summary:`);
+  console.log(`   Total SOL: ${portfolio.totalSOL}`);
+  console.log(`   Total USD: $${portfolio.totalUSD.toFixed(2)}`);
+  console.log(`   Holdings: ${portfolio.tokens.length} tokens`);
+  
+  portfolio.tokens.forEach(token => {
+    console.log(`   - ${token.symbol}: ${token.amount} (${token.valueUSD})`);
+  });
+};
+```
+
+### Example 3: Swap Tokens
+```typescript
+const swapTokens = async () => {
+  const res = await fetch('http://localhost:3001/model/swap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fromMint: 'So11111111111111111111111111111111111111112', // SOL
+      toMint: 'EPjFWaLb3odcccccccccccccccccccccccccccccccccc', // USDC
+      amountIn: 1000000000, // 1 SOL in lamports
+      wallet: 'YOUR_WALLET_ADDRESS',
+      slippage: 0.5 // 0.5% slippage
+    })
+  });
+  
+  const { tx, amountOut, price } = await res.json();
+  console.log(`✅ Swap successful!`);
+  console.log(`📊 Price: ${price}`);
+  console.log(`💰 Received: ${amountOut}`);
+  console.log(`🔗 Tx: ${tx}`);
+};
+```
+
+---
+
+## 📚 Useful Resources
+
+### Solana Development
+- [Solana Developer Docs](https://docs.solana.com)
+- [Web3.js API Reference](https://solana-labs.github.io/solana-web3.js/)
+- [SPL Token Program](https://spl.solana.com/token)
+- [Solscan Explorer](https://solscan.io) - View transactions & tokens
+
+### ElizaOS Framework
+- [ElizaOS GitHub](https://github.com/elizaos/eliza)
+- [ElizaOS Documentation](https://elizaos.ai)
+- [ElizaOS Plugin Guide](https://github.com/elizaos/eliza/tree/main/packages/plugin-bootstrap)
+
+### DeFi Protocols
+- [Jupiter Protocol](https://jup.ag) - DEX Aggregator
+- [AutoFun/Pump.fun](https://pump.fun) - Token Launches
+- [Raydium](https://raydium.io) - AMM
+
+### Development Tools
+- [Node.js](https://nodejs.org/) - JavaScript runtime
+- [Bun](https://bun.sh/) - Fast JavaScript runtime
+- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
+- [Vercel](https://vercel.com) - Serverless deployment
+
+### Monitoring & Analytics
+- [Solscan](https://solscan.io) - Solana blockchain explorer
+- [Magic Eden](https://magiceden.io) - NFT marketplace (token data)
+- [DexScreener](https://dexscreener.com) - Trading charts

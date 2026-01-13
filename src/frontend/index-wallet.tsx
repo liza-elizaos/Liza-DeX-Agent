@@ -5,10 +5,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { UUID } from '@elizaos/core';
 import { WalletAdapterNetwork, WalletError } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider, useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import '@solana/wallet-adapter-react-ui/styles.css';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
-import { useConnection } from '@solana/wallet-adapter-react';
 import { handleChatCommand } from './chatCommands';
 import { clusterApiUrl } from '@solana/web3.js';
 
@@ -77,11 +74,6 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
 
     try {
       // First check if this is a front-end handled command
-      const { connection } = useConnection ? ({} as any) : { connection: undefined };
-      // Note: useConnection cannot be called conditionally; instead access connection via hook outside.
-      // We'll access connection via a global fallback below.
-
-      // Basic local command handling
       const conn = (window as any).__LIZA_CONNECTION || null;
       const cmdResult = await handleChatCommand(input, { connection: conn, wallet: { publicKey, connect, connecting, connected } as any });
       if (cmdResult.handled) {
@@ -158,9 +150,19 @@ function ChatComponent({ agentId }: { agentId: UUID }) {
           <p className="text-sm text-purple-300">Agent ID: {agentId}</p>
         </div>
         
-        {/* Wallet Connect Button - Right Side */}
-        <div className="flex-shrink-0 flex items-center">
-          <WalletMultiButton />
+        {/* Wallet Status - Right Side */}
+        <div className="flex-shrink-0 flex items-center text-sm">
+          {connected ? (
+            <div className="text-green-400">✅ Wallet Connected</div>
+          ) : (
+            <button 
+              onClick={() => connect()} 
+              disabled={connecting}
+              className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-sm font-semibold"
+            >
+              {connecting ? 'Connecting...' : 'Connect Wallet'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,9 +268,7 @@ function ExampleRoute() {
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} onError={onError} autoConnect={true}>
-            <WalletModalProvider>
-              <ChatComponent agentId={agentId as UUID} />
-            </WalletModalProvider>
+            <ChatComponent agentId={agentId as UUID} />
           </WalletProvider>
         </ConnectionProvider>
       </QueryClientProvider>
