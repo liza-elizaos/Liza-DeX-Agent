@@ -1,42 +1,85 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import { Pool } from 'pg';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
-// Simple serverless ingest endpoint. Expects JSON { action: 'token'|'transfer', mint?: string, txSig?: string }
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Token ingestion service
+// Handles token data and transfer tracking
 
-async function fetchTokenInfo(connection: Connection, mint: string) {
+export interface TokenData {
+  mint: string;
+  symbol: string | null;
+  name: string | null;
+}
+
+export interface TransferData {
+  mint: string;
+  txSig: string;
+  from?: string;
+  to?: string;
+  amount?: number;
+  slot?: number;
+  ts?: number;
+}
+
+export interface IngestResult {
+  success: boolean;
+  error?: string;
+}
+
+let pool: Pool | null = null;
+
+function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return pool;
+}
+
+async function fetchTokenInfo(connection: Connection, mint: string): Promise<TokenData> {
   // Placeholder: we can fetch metadata via on-chain or indexer later
   return { mint, symbol: null, name: null };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const { action } = req.body || {};
-  if (!action) return res.status(400).json({ error: 'action required' });
-
+export async function ingestToken(mint: string, rpc?: string): Promise<IngestResult> {
+  if (!mint) return { success: false, error: 'mint required' };
+  
+  const pool = getPool();
   const client = await pool.connect();
   try {
-    if (action === 'token') {
-      const { mint, rpc } = req.body;
-      if (!mint) return res.status(400).json({ error: 'mint required' });
-      const conn = new Connection(rpc || process.env.HELIUS_RPC);
-      const info = await fetchTokenInfo(conn, mint);
-      await client.query(`INSERT INTO tokens(mint, symbol, name) VALUES($1,$2,$3) ON CONFLICT (mint) DO UPDATE SET last_updated=now()`, [info.mint, info.symbol, info.name]);
-      return res.json({ ok: true });
-    }
+    const rpcUrl = rpc || process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
+    const conn = new Connection(rpcUrl);
+    const info = await fetchTokenInfo(conn, mint);
+    
+    await client.query(
+      `INSERT INTO tokens(mint, symbol, name) VALUES($1,$2,$3) 
+       ON CONFLICT (mint) DO UPDATE SET last_updated=now()`,
+      [info.mint, info.symbol, info.name]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('Token ingest error:', error);
+    return { success: false, error: String(error) };
+  } finally {
+    client.release();
+  }
+}
 
-    if (action === 'transfer') {
-      const { mint, txSig, from, to, amount, slot, ts } = req.body;
-      if (!txSig) return res.status(400).json({ error: 'txSig required' });
-      await client.query(`INSERT INTO transfers(mint, tx_sig, "from", "to", amount, slot, ts) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (tx_sig) DO NOTHING`, [mint, txSig, from, to, amount, slot, ts]);
-      return res.json({ ok: true });
-    }
-
-    return res.status(400).json({ error: 'unknown action' });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server error' });
+export async function ingestTransfer(data: TransferData): Promise<IngestResult> {
+  if (!data.txSig) return { success: false, error: 'txSig required' };
+  
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    const { mint, txSig, from, to, amount, slot, ts } = data;
+    await client.query(
+      `INSERT INTO transfers(mint, tx_sig, "from", "to", amount, slot, ts) 
+       VALUES($1,$2,$3,$4,$5,$6,$7) 
+       ON CONFLICT (tx_sig) DO NOTHING`,
+      [mint, txSig, from, to, amount, slot, ts]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('Transfer ingest error:', error);
+    return { success: false, error: String(error) };
   } finally {
     client.release();
   }
