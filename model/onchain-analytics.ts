@@ -1,26 +1,46 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import { Pool } from 'pg';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const RPC = process.env.HELIUS_RPC || process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+export interface OnchainAnalytics {
+  mint: string;
+  holders: Array<{ owner: string; balance: string }>;
+  topHolderConcentration: number;
+  transfers: any[];
+  updated: Date;
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') return res.status(405).end();
-  const { mint } = req.query;
-  if (!mint) return res.status(400).json({ error: 'mint required' });
+let pool: Pool | null = null;
 
+function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return pool;
+}
+
+function getRpcUrl(): string {
+  return process.env.HELIUS_RPC || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+}
+
+/**
+ * Analyze on-chain token metrics
+ */
+export async function analyzeOnchain(mint: string): Promise<OnchainAnalytics> {
+  if (!mint) throw new Error('mint required');
+
+  const pool = getPool();
   const client = await pool.connect();
   try {
-    const conn = new Connection(RPC as string);
+    const conn = new Connection(getRpcUrl());
     
-    // Get token info from DB or fetch fresh
-    let tokenData = await client.query('SELECT * FROM tokens WHERE mint = $1', [mint]);
+    // Get token info from DB
+    const tokenData = await client.query('SELECT * FROM tokens WHERE mint = $1', [mint]);
     
     // Fetch holders from DB
-    const holders = await client.query(`
-      SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC LIMIT 20
-    `, [mint]);
+    const holders = await client.query(
+      `SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC LIMIT 20`,
+      [mint]
+    );
     
     // Calculate concentration
     const totalBalance = holders.rows.reduce((sum, r) => sum + parseFloat(r.balance || 0), 0);
@@ -28,20 +48,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (parseFloat(holders.rows[0].balance || 0) / totalBalance * 100) : 0;
 
     // Get recent transfers
-    const transfers = await client.query(`
-      SELECT * FROM transfers WHERE mint = $1 ORDER BY ts DESC LIMIT 50
-    `, [mint]);
+    const transfers = await client.query(
+      `SELECT * FROM transfers WHERE mint = $1 ORDER BY ts DESC LIMIT 50`,
+      [mint]
+    );
 
-    return res.json({
+    return {
       mint,
       holders: holders.rows,
       topHolderConcentration,
       transfers: transfers.rows,
       updated: new Date(),
-    });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server error' });
+    };
   } finally {
     client.release();
   }

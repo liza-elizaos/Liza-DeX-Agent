@@ -1,19 +1,37 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import { Pool } from 'pg';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export interface RiskAnalysis {
+  mint: string;
+  riskScore: number;
+  risks: string[];
+  verdict: 'safe' | 'caution' | 'danger';
+  holderCount: number;
+  topHolders: Array<{ owner: string; balance: string }>;
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const { mint } = req.body;
-  if (!mint) return res.status(400).json({ error: 'mint required' });
+let pool: Pool | null = null;
 
+function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return pool;
+}
+
+/**
+ * Analyze token holder concentration risk
+ */
+export async function analyzeRisk(mint: string): Promise<RiskAnalysis> {
+  if (!mint) throw new Error('mint required');
+
+  const pool = getPool();
   const client = await pool.connect();
   try {
     // Fetch holders for the mint
-    const holders = await client.query(`
-      SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC
-    `, [mint]);
+    const holders = await client.query(
+      `SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC`,
+      [mint]
+    );
 
     const totalBalance = holders.rows.reduce((sum, r) => sum + parseFloat(r.balance || 0), 0);
     
@@ -47,19 +65,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       riskScore += 20;
     }
 
-    const verdict = riskScore > 60 ? 'danger' : riskScore > 40 ? 'caution' : 'safe';
+    const verdict: 'safe' | 'caution' | 'danger' = riskScore > 60 ? 'danger' : riskScore > 40 ? 'caution' : 'safe';
 
-    return res.json({
+    return {
       mint,
       riskScore,
       risks,
       verdict,
       holderCount: holders.rows.length,
       topHolders: holders.rows.slice(0, 5),
-    });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server error' });
+    };
   } finally {
     client.release();
   }
