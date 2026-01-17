@@ -43,84 +43,19 @@ async function callOpenRouter(messages: Array<{ role: string; content: string }>
 async function generateResponse(message: string): Promise<string> {
   const msg = message.toLowerCase().trim();
 
-  // ========== LAUNCH TOKEN COMMAND ==========
-  if (msg.startsWith('/launch token ') || msg.startsWith('launch token ')) {
-    // Parse: /launch token [name] [symbol] [description]
-    const parts = message.replace(/^\/launch token |^launch token /i, '').split(' ');
-    
-    if (parts.length < 3) {
-      return `🚀 **TOKEN LAUNCH - STEP BY STEP**
+  // Portfolio command
+  if (msg.includes("portfolio") || msg.includes("show portfolio")) {
+    return `📊 **Portfolio Analysis**
 
-**Format:** \`/launch token [name] [symbol] [description]\`
+To view your portfolio, I'll analyze your wallet holdings.
 
-**Example:**
-\`/launch token MyToken MTK "The best trading token ever"\`
+Make sure your wallet is connected and I'll show you:
+✅ Total portfolio value in USD
+✅ SOL balance and value
+✅ All token holdings with balances
+✅ Portfolio composition breakdown
 
-**What you need:**
-• Token Name (e.g., MyToken)
-• Symbol (e.g., MTK) - max 6 chars
-• Description (e.g., "Best trading token")
-• Logo URL (optional - will ask next)
-• Website (optional - will ask next)
-
-**Ready? Type:**
-\`/launch token YourName YourSymbol Your description here\``;
-    }
-
-    const name = parts[0];
-    const symbol = parts[1];
-    const description = parts.slice(2).join(' ');
-
-    return `✅ **TOKEN LAUNCH INITIATED!**
-
-🎉 Your token is being created:
-
-📋 **Token Details:**
-• Name: **${name}**
-• Symbol: **${symbol}**
-• Description: **${description}**
-
-💰 **Creator Rewards Setup:**
-Based on market cap, you'll earn:
-• **0.3% - 0.95% per trade**
-• **0.05% - 0.93% protocol fee** (your revenue!)
-
-🔗 **Next Steps:**
-1. Upload token logo (optional):
-   \`/upload logo [image-url]\`
-
-2. Add token links (optional):
-   \`/add links website:https://... twitter:@... discord:...\`
-
-3. Launch on-chain:
-   \`/confirm launch\`
-
-4. Start selling tokens to users:
-   \`/sell 1000 tokens\`
-
-**Ready to launch?** 🚀`;
-  }
-
-  // Quick launch response
-  if (msg.startsWith('/launch') || msg === 'launch token') {
-    return `🚀 **TOKEN LAUNCH WIZARD**
-
-Ready to launch your token on Solana!
-
-📋 **Quick Start:**
-Type: \`/launch token [name] [symbol] [description]\`
-
-Example:
-\`/launch token MyToken MTK "The best trading token"\`
-
-**Features:**
-✅ Automatic fee tier calculation
-✅ Creator reward setup (0.3%-0.95% per trade)
-✅ Token logo upload support
-✅ Social links integration
-✅ Instant Solana deployment
-
-Or use the **Launch Form** at /launch for full UI! 🎨`;
+Say: \`show portfolio\` and I'll fetch your latest data!`;
   }
 
   // Quick responses
@@ -130,11 +65,11 @@ Or use the **Launch Form** at /launch for full UI! 🎨`;
 
   if (msg.includes("help") || msg.includes("features")) {
     return `🚀 I can help you with:
-• **Launch Tokens** - Type \`/launch token [name] [symbol] [description]\`
-• **Buy Tokens** - Type \`/buy [amount] SOL of [token]\`
-• **Trading** - Buy/sell tokens on Solana
-• **Portfolio** - Check wallet balance & holdings  
+• **Portfolio** - Type \`show portfolio\`
 • **Balance** - Check account balances
+• **Swap** - Swap tokens with name & mint address
+• **Buy/Sell** - Trading on Solana
+• **Launch Token** - Create new tokens
 • **Rewards** - Claim creator rewards
 
 What would you like to do?`;
@@ -144,77 +79,14 @@ What would you like to do?`;
   if (msg.includes("balance") || msg.includes("check balance")) {
     return `💰 **Check Your Balance**
 
-Type: \`check balance [wallet_address]\`
+I can check your SOL and token balances.
 
-Or if you have a wallet connected, I can check automatically!
-
-Example:
-\`check balance 2ae321aSbfU5o9Qfg6DpVQckGQVKZe4haevWVJJR4VE9\``;
-  }
-
-  // ========== PORTFOLIO COMMAND ==========
-  if (msg.includes("portfolio") || msg.includes("show portfolio") || msg.includes("check portfolio")) {
-    // Extract wallet address if provided
-    const addressMatch = message.match(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/);
-    const walletAddress = addressMatch ? addressMatch[0] : null;
-
-    if (!walletAddress) {
-      return `📊 **Portfolio Check**
-
-Type: \`show portfolio [wallet_address]\`
-
-Or: \`check portfolio [wallet_address]\`
-
-Example:
-\`show portfolio 6i1HTXhcxreAEys8QMEvnB1FNpNVwombS61QcwquJb1f\`
-
-I'll show you:
-• Total portfolio value in USD
-• SOL holdings
-• All token holdings
-• Portfolio composition`;
-    }
-
-    try {
-      const portfolioResponse = await fetch('https://shina-iq8tknxqq-naquibmirza-6034s-projects.vercel.app/api/portfolio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress }),
-      });
-
-      const portfolioData = await portfolioResponse.json();
-
-      if (portfolioData.success) {
-        let response = `📊 **Portfolio Summary**\n`;
-        response += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        response += `💰 **Total Value**: $${portfolioData.totalValueUSD.toFixed(2)}\n`;
-        response += `📈 **Token Count**: ${portfolioData.tokenCount}\n\n`;
-        response += `**SOL Holdings:**\n`;
-        response += `├─ Amount: ${portfolioData.solBalance.toFixed(6)} SOL\n`;
-        response += `└─ Value: $${portfolioData.solValueUSD.toFixed(2)}\n\n`;
-        
-        if (portfolioData.tokens && portfolioData.tokens.length > 0) {
-          response += `**Other Tokens:**\n`;
-          portfolioData.tokens.slice(0, 5).forEach((token: any, i: number) => {
-            if (token.symbol !== 'SOL') {
-              response += `├─ ${token.symbol}: $${token.valueUSD.toFixed(2)}\n`;
-            }
-          });
-        }
-        
-        return response;
-      } else {
-        return `❌ Unable to fetch portfolio: ${portfolioData.error}`;
-      }
-    } catch (error) {
-      return `❌ Error fetching portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    }
+Make sure your wallet is connected, then ask me to check your balance!`;
   }
 
   // ========== SWAP COMMAND ==========
   if (msg.includes("swap") || msg.includes("buy") || msg.includes("sell")) {
     const swapPatterns = [
-      /swap\s+([\d.]+)\s+([1-9A-HJ-NP-Za-km-z]{44}|[\w]+)\s+for\s+([1-9A-HJ-NP-Za-km-z]{44}|[\w]+)/i,  // with mint or name
       /swap\s+([\d.]+)\s+(\w+)\s+for\s+(\w+)/i,  // "swap 0.001 SOL for USDC"
       /buy\s+([\d.]+)\s+(\w+)/i,                  // "buy 100 USDC"
       /sell\s+([\d.]+)\s+(\w+)/i,                 // "sell 100 USDC"
@@ -264,16 +136,14 @@ What would you like to swap?`;
         body: JSON.stringify({ fromToken: fromToken.toLowerCase(), toToken: toToken.toLowerCase(), amount, userPublicKey }),
       });
 
-      const swapData = await swapResponse.json() as any;
+      const swapData = await swapResponse.json();
       if (swapData.success && swapData.swap) {
         const swap = swapData.swap;
         const rate = swap.to.estimatedAmount / swap.from.amount;
-        const fromSymbol = swap.from.symbol || fromToken.toUpperCase();
-        const toSymbol = swap.to.symbol || toToken.toUpperCase();
         return `✅ **Swap Quote Ready!**
-📤 **From**: ${fromSymbol} - ${swap.from.amount} @ $${(swap.from.price || 0).toFixed(4)}
-📥 **To**: ${toSymbol} - Est: ${swap.to.estimatedAmount.toFixed(6)} @ $${(swap.to.price || 0).toFixed(4)}
-💱 **Rate**: 1 ${fromSymbol} = ${rate.toFixed(6)} ${toSymbol}
+📤 **From**: ${(swap.from.token || fromToken).toUpperCase()} - ${swap.from.amount} @ $${(swap.from.price || 0).toFixed(4)}
+📥 **To**: ${(swap.to.token || toToken).toUpperCase()} - Est: ${swap.to.estimatedAmount.toFixed(6)} @ $${(swap.to.price || 0).toFixed(4)}
+💱 **Rate**: 1 ${(swap.from.token || fromToken).toUpperCase()} = ${rate.toFixed(6)} ${(swap.to.token || toToken).toUpperCase()}
 📊 **Slippage**: ${swap.slippage || '0.5%'}
 
 Ready? Say "confirm swap"`;
@@ -282,22 +152,6 @@ Ready? Say "confirm swap"`;
     } catch (error) {
       return `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
-  }
-
-  // ========== CONFIRM SWAP COMMAND ==========
-  if (msg.includes("confirm") && msg.includes("swap")) {
-    return `✅ **Swap Execution**
-
-Your swap quote has been locked in!
-
-🔄 **Execution Status**: Ready
-   • Amount locked at current price
-   • 0.5% slippage protection active
-   • Gas fees calculated
-
-📲 **Next Step**: Use a connected Solana wallet to complete
-
-Would you like to try another swap? Just say "swap X Y for Z"`;
   }
 
   // Fall back to OpenRouter for general queries
@@ -347,20 +201,25 @@ export default async function handler(
       const { message, sessionId } = body;
 
       if (!message) {
-        return res.status(400).json({ error: "Missing message field" });
+        return res.status(400).json({
+          error: "No message provided",
+        });
       }
 
+      console.log("[CHAT] Received message:", message);
+
       const response = await generateResponse(message);
+
       return res.status(200).json({
-        response,
-        sessionId: sessionId || `session_${Date.now()}`,
+        success: true,
+        message: response,
+        sessionId: sessionId || Date.now().toString(),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       console.error("[CHAT] Error:", error);
       return res.status(500).json({
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }

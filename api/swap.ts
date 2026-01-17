@@ -1,5 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import axios from 'axios';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
 const TOKEN_MAP: Record<string, string> = {
   'sol': 'So11111111111111111111111111111111111111112',
@@ -10,17 +9,47 @@ const TOKEN_MAP: Record<string, string> = {
   'jup': 'JUPyiwrYJFskUPiHa7hkeR8JwF3ttBKqrySAv4S3daM',
 };
 
+async function getJupiterQuote(inputMint: string, outputMint: string, amount: number) {
+  try {
+    // Convert amount to lamports (accounting for decimals)
+    const decimals = inputMint === TOKEN_MAP['sol'] ? 9 : 6;
+    const amountInLamports = Math.floor(amount * Math.pow(10, decimals));
+
+    const jupiterApi = process.env.JUPITER_QUOTE_API || 'https://api.jup.ag/quote';
+    const apiKey = process.env.JUPITER_API_KEY ? `&token=${process.env.JUPITER_API_KEY}` : '';
+    
+    const response = await fetch(
+      `${jupiterApi}?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLamports}&slippageBps=50${apiKey}`
+    );
+
+    if (!response.ok) {
+      console.error('[SWAP] Jupiter quote error:', response.status, await response.text());
+      return null;
+    }
+
+    const data = await response.json() as any;
+    return data;
+  } catch (error) {
+    console.error('[SWAP] Error fetching quote:', error);
+    return null;
+  }
+}
+
 async function getTokenPrice(mint: string): Promise<number> {
   try {
-    const response = await axios.get(
-      `https://api.jup.ag/price?ids=${mint}`,
-      { timeout: 5000 }
+    const jupiterPriceApi = process.env.JUPITER_PRICE_API || 'https://api.jup.ag/price';
+    const response = await fetch(
+      `${jupiterPriceApi}?ids=${mint}`
     );
-    if (response.data?.data?.[mint]?.price) {
-      return parseFloat(response.data.data[mint].price);
+    if (!response.ok) return 0;
+    
+    const data = await response.json() as any;
+    if (data?.data?.[mint]?.price) {
+      return parseFloat(data.data[mint].price);
     }
     return 0;
-  } catch {
+  } catch (error) {
+    console.error('[PRICE] Error:', error);
     return 0;
   }
 }
@@ -28,6 +57,7 @@ async function getTokenPrice(mint: string): Promise<number> {
 function parseTokenIdentifier(token: string): string {
   const clean = token.toLowerCase().trim();
   
+  // Check if it's a valid Solana address (44 chars, base58)
   if (/^[1-9A-HJ-NP-Za-km-z]{44}$/.test(token.trim())) {
     return token.trim();
   }
@@ -92,13 +122,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       getTokenPrice(toMint)
     ]);
 
+    // Get Jupiter quote for accurate prices and output
+    const quote = await getJupiterQuote(fromMint, toMint, amount);
+    
     let estimatedOutput = amount;
-    if (fromPrice > 0 && toPrice > 0) {
-      estimatedOutput = (amount * fromPrice) / toPrice;
-    }
+    let estimatedOutputWithSlippage = amount;
 
-    const slippageAmount = estimatedOutput * 0.005;
-    const estimatedOutputWithSlippage = estimatedOutput - slippageAmount;
+    if (quote) {
+      // Use Jupiter quote data
+      const outputDecimals = toMint === TOKEN_MAP['sol'] ? 9 : 6;
+      estimatedOutput = quote.outAmount / Math.pow(10, outputDecimals);
+      estimatedOutputWithSlippage = quote.outAmountWithSlippage / Math.pow(10, outputDecimals);
+    } else if (fromPrice > 0 && toPrice > 0) {
+      // Fallback to price-based calculation
+      estimatedOutput = (amount * fromPrice) / toPrice;
+      const slippageAmount = estimatedOutput * 0.005;
+      estimatedOutputWithSlippage = estimatedOutput - slippageAmount;
+    }
 
     return res.status(200).json({
       success: true,
@@ -107,13 +147,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           token: fromToken,
           mint: fromMint,
           amount: amount,
-          price: fromPrice
+          price: fromPrice,
+          symbol: Object.keys(TOKEN_MAP).find(k => TOKEN_MAP[k] === fromMint)?.toUpperCase() || 'UNKNOWN'
         },
         to: {
           token: toToken,
           mint: toMint,
           estimatedAmount: estimatedOutputWithSlippage,
-          price: toPrice
+          price: toPrice,
+          symbol: Object.keys(TOKEN_MAP).find(k => TOKEN_MAP[k] === toMint)?.toUpperCase() || 'UNKNOWN'
         },
         slippage: '0.5%',
         status: 'quote_ready',

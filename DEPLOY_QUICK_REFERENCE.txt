@@ -1,0 +1,63 @@
+📋 LIZA Deployment Quick Reference
+==================================
+
+✅ WHAT'S READY
+--------------
+• Portfolio API - See wallet holdings & USD values
+• Balance API - Check SOL balance (fallback RPC support)
+• Swap API - Trade tokens by name OR mint address
+• Chat API - AI assistant integration
+• Wallet Connect - Connect Solana wallets
+• All endpoints have CORS enabled
+
+🚀 DEPLOY IN 3 STEPS
+-------------------
+
+Step 1: Commit
+  git add .
+  git commit -m "Deploy to Vercel"
+  git push origin main
+
+Step 2: Set Environment Variables
+  SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+  SOLANA_PUBLIC_KEY=<your_wallet>
+  OPENROUTER_API_KEY=<api_key>
+
+Step 3: Deploy
+  Option A: vercel --prod
+  Option B: Import from GitHub at vercel.com
+
+🧪 LOCAL TESTING
+----------------
+npm run dev              # Start server
+bun run run:portfolio    # Test portfolio
+curl http://localhost:3000/api/balance  # Test balance
+
+📱 SWAP TOKEN EXAMPLES
+---------------------
+By name:
+  fromToken: "SOL", toToken: "USDC", amount: 10
+
+By mint address:
+  fromToken: "So11111...", toToken: "EPjFWa...", amount: 10
+
+Supported names: SOL, USDC, USDT, mSOL, BONK, JUP
+
+🔗 API ENDPOINTS
+----------------
+POST   /api/chat              - Chat with AI
+GET    /api/balance           - Get server wallet balance
+POST   /api/balance           - Check user wallet balance
+GET    /api/portfolio         - Analyze wallet portfolio
+POST   /api/swap              - Swap tokens
+POST   /api/wallet-connect    - Connect wallet
+GET    /health                - Health check
+
+📚 DOCUMENTATION
+----------------
+Full guide: VERCEL_DEPLOYMENT_GUIDE.md
+Pre-deployment checklist: scripts/verify-deployment.ts
+Deployment assistant: scripts/deploy-vercel.ts
+Environment variables: .env.vercel.guide
+
+✨ All systems GO for production!
