@@ -45,7 +45,7 @@ export async function ingestToken(mint: string, rpc?: string): Promise<IngestRes
   const pool = getPool();
   const client = await pool.connect();
   try {
-    const rpcUrl = rpc || process.env.HELIUS_RPC || 'https://api.mainnet-beta.solana.com';
+    const rpcUrl = rpc || process.env.HELIUS_RPC || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
     const conn = new Connection(rpcUrl);
     const info = await fetchTokenInfo(conn, mint);
     
