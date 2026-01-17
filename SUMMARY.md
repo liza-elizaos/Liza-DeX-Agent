@@ -51,7 +51,7 @@
   * [✅ Token Launcher System - WORKING!](token-launcher/SYSTEM_STATUS.md)
   * [🔥 PUMP.FUN TOKEN LAUNCHER - COMPLETE TESTING GUIDE](token-launcher/TESTING_GUIDE.md)
   * [🚀 LIZA Token Launcher - Deployment Guide](token-launcher/VERCEL_DEPLOYMENT.md)
-* [.github](.github/README.md)
+* [🤖 .github](.github/README.md)
   * [agents](.github/agents/README.md)
     * [new.agent](.github/agents/new.agent.md)
 * [src](src/README.md)
