@@ -1,13 +1,17 @@
 import { Pool } from 'pg';
 import { Connection } from '@solana/web3.js';
 
-export interface OnchainAnalytics {
+// On-chain analytics module
+
+export interface TokenAnalytics {
   mint: string;
-  holders: Array<{ owner: string; balance: string }>;
+  holders: any[];
   topHolderConcentration: number;
   transfers: any[];
   updated: Date;
 }
+
+const RPC = process.env.HELIUS_RPC || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 let pool: Pool | null = null;
 
@@ -18,29 +22,19 @@ function getPool(): Pool {
   return pool;
 }
 
-function getRpcUrl(): string {
-  return process.env.HELIUS_RPC || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-}
-
-/**
- * Analyze on-chain token metrics
- */
-export async function analyzeOnchain(mint: string): Promise<OnchainAnalytics> {
-  if (!mint) throw new Error('mint required');
-
+export async function getTokenAnalytics(mint: string): Promise<TokenAnalytics> {
   const pool = getPool();
   const client = await pool.connect();
   try {
-    const conn = new Connection(getRpcUrl());
+    const conn = new Connection(RPC as string);
     
-    // Get token info from DB
-    const tokenData = await client.query('SELECT * FROM tokens WHERE mint = $1', [mint]);
+    // Get token info from DB or fetch fresh
+    await client.query('SELECT * FROM tokens WHERE mint = $1', [mint]);
     
     // Fetch holders from DB
-    const holders = await client.query(
-      `SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC LIMIT 20`,
-      [mint]
-    );
+    const holders = await client.query(`
+      SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC LIMIT 20
+    `, [mint]);
     
     // Calculate concentration
     const totalBalance = holders.rows.reduce((sum, r) => sum + parseFloat(r.balance || 0), 0);
@@ -48,10 +42,9 @@ export async function analyzeOnchain(mint: string): Promise<OnchainAnalytics> {
       (parseFloat(holders.rows[0].balance || 0) / totalBalance * 100) : 0;
 
     // Get recent transfers
-    const transfers = await client.query(
-      `SELECT * FROM transfers WHERE mint = $1 ORDER BY ts DESC LIMIT 50`,
-      [mint]
-    );
+    const transfers = await client.query(`
+      SELECT * FROM transfers WHERE mint = $1 ORDER BY ts DESC LIMIT 50
+    `, [mint]);
 
     return {
       mint,

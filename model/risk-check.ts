@@ -1,12 +1,14 @@
 import { Pool } from 'pg';
 
+// Token risk assessment module
+
 export interface RiskAnalysis {
   mint: string;
   riskScore: number;
   risks: string[];
   verdict: 'safe' | 'caution' | 'danger';
   holderCount: number;
-  topHolders: Array<{ owner: string; balance: string }>;
+  topHolders: any[];
 }
 
 let pool: Pool | null = null;
@@ -18,20 +20,14 @@ function getPool(): Pool {
   return pool;
 }
 
-/**
- * Analyze token holder concentration risk
- */
-export async function analyzeRisk(mint: string): Promise<RiskAnalysis> {
-  if (!mint) throw new Error('mint required');
-
+export async function analyzeTokenRisk(mint: string): Promise<RiskAnalysis> {
   const pool = getPool();
   const client = await pool.connect();
   try {
     // Fetch holders for the mint
-    const holders = await client.query(
-      `SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC`,
-      [mint]
-    );
+    const holders = await client.query(`
+      SELECT owner, balance FROM holders WHERE mint = $1 ORDER BY balance DESC
+    `, [mint]);
 
     const totalBalance = holders.rows.reduce((sum, r) => sum + parseFloat(r.balance || 0), 0);
     
@@ -65,7 +61,7 @@ export async function analyzeRisk(mint: string): Promise<RiskAnalysis> {
       riskScore += 20;
     }
 
-    const verdict: 'safe' | 'caution' | 'danger' = riskScore > 60 ? 'danger' : riskScore > 40 ? 'caution' : 'safe';
+    const verdict = riskScore > 60 ? 'danger' : riskScore > 40 ? 'caution' : 'safe';
 
     return {
       mint,
