@@ -3,7 +3,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import cron from 'node-cron';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const RPC = process.env.HELIUS_RPC || process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+const RPC = process.env.HELIUS_RPC || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const conn = new Connection(RPC as string);
 const HELIUS_KEY = process.env.HELIUS_API_KEY;
 

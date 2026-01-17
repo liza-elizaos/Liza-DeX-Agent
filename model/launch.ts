@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import dotenv from "dotenv";
 import bs58 from "bs58";
 import { Connection, Keypair, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -14,6 +13,25 @@ const CONFIG = {
   PUBLIC_KEY: process.env.SOLANA_PUBLIC_KEY?.trim().replace(/[\r\n]/g, ''),
   PUMP_FUN_PROGRAM: new PublicKey("6EF8rZkuitQVLNtnYoMTRUY56DJRNm5DQFFLqJEd9QJ"),
 };
+
+export interface LaunchTokenRequest {
+  name: string;
+  symbol: string;
+  uri: string;
+  initialSupply?: number;
+}
+
+export interface LaunchTokenResponse {
+  success: boolean;
+  signature: string;
+  mint: string;
+  name: string;
+  symbol: string;
+  explorerUrl: string;
+  creatorUrl: string;
+  message: string;
+  error?: string;
+}
 
 function isValidBase58(str: string): boolean {
   try { bs58.decode(str); return true; } catch { return false; }
@@ -34,36 +52,26 @@ async function getConnection(): Promise<Connection> {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export async function launchToken(req: LaunchTokenRequest): Promise<LaunchTokenResponse> {
   console.log("[LAUNCH] ===== TOKEN LAUNCH REQUEST =====");
-  console.log("[LAUNCH] Method:", req.method);
   console.log("[LAUNCH] Timestamp:", new Date().toISOString());
-
-  if (req.method !== "POST") {
-    console.log("[LAUNCH] ❌ Not POST");
-    return res.status(405).json({ error: "Method not allowed, use POST" });
-  }
 
   try {
     // ============ REQUEST VALIDATION ============
     console.log("[LAUNCH] Validating request...");
-    const body = (req.body && typeof req.body === "object") ? req.body : {};
-    const name = (body.name || body.tokenName)?.toString()?.trim();
-    const symbol = (body.symbol || body.tokenSymbol)?.toString()?.trim()?.toUpperCase();
-    const uri = (body.uri || body.metadataUri)?.toString()?.trim();
-    const initialSupply = body.initialSupply || 1000000;
+    const { name, symbol, uri, initialSupply = 1000000 } = req;
 
     console.log("[LAUNCH] Token Request:", { name, symbol, uri, initialSupply });
 
     // Validate inputs
     if (!name || name.length < 2 || name.length > 50) {
-      return res.status(400).json({ error: "Token name must be 2-50 characters" });
+      throw new Error("Token name must be 2-50 characters");
     }
     if (!symbol || symbol.length < 2 || symbol.length > 10) {
-      return res.status(400).json({ error: "Token symbol must be 2-10 characters" });
+      throw new Error("Token symbol must be 2-10 characters");
     }
     if (!uri) {
-      return res.status(400).json({ error: "Metadata URI is required" });
+      throw new Error("Metadata URI is required");
     }
 
     // ============ ENV VALIDATION ============
@@ -71,20 +79,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     if (!CONFIG.PRIVATE_KEY) {
       console.error("[LAUNCH] ❌ SOLANA_PRIVATE_KEY not configured");
-      return res.status(500).json({ error: "Server Error: Missing SOLANA_PRIVATE_KEY" });
+      throw new Error("Missing SOLANA_PRIVATE_KEY");
     }
     if (!CONFIG.PUBLIC_KEY) {
       console.error("[LAUNCH] ❌ SOLANA_PUBLIC_KEY not configured");
-      return res.status(500).json({ error: "Server Error: Missing SOLANA_PUBLIC_KEY" });
+      throw new Error("Missing SOLANA_PUBLIC_KEY");
     }
 
     if (!isValidPublicKey(CONFIG.PUBLIC_KEY)) {
       console.error("[LAUNCH] ❌ Invalid PUBLIC_KEY format");
-      return res.status(500).json({ error: "Invalid SOLANA_PUBLIC_KEY format" });
+      throw new Error("Invalid SOLANA_PUBLIC_KEY format");
     }
     if (!isValidBase58(CONFIG.PRIVATE_KEY)) {
       console.error("[LAUNCH] ❌ Invalid PRIVATE_KEY format");
-      return res.status(500).json({ error: "Invalid SOLANA_PRIVATE_KEY format" });
+      throw new Error("Invalid SOLANA_PRIVATE_KEY format");
     }
 
     // ============ SETUP ============
@@ -94,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log("[LAUNCH] Setting up keypairs...");
     const secretKey = bs58.decode(CONFIG.PRIVATE_KEY);
     if (secretKey.length !== 64) {
-      return res.status(500).json({ error: "Invalid private key length" });
+      throw new Error("Invalid private key length");
     }
 
     const walletKeypair = Keypair.fromSecretKey(Uint8Array.from(secretKey));
@@ -152,17 +160,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (confirmation.value.err) {
       console.error("[LAUNCH] ❌ Transaction failed:", confirmation.value.err);
-      return res.status(500).json({ 
-        error: "Transaction failed on-chain",
-        signature: sig,
-        details: String(confirmation.value.err)
-      });
+      throw new Error(`Transaction failed: ${confirmation.value.err}`);
     }
 
     const tokenAddress = mintKeypair.publicKey.toBase58();
     console.log("[LAUNCH] ✅ SUCCESS! Token created:", tokenAddress);
 
-    return res.status(200).json({
+    return {
       success: true,
       signature: sig,
       mint: tokenAddress,
@@ -171,17 +175,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       explorerUrl: `https://solscan.io/token/${tokenAddress}?cluster=mainnet`,
       creatorUrl: `https://pump.fun/coin/${tokenAddress}`,
       message: "Token launched successfully on pump.fun!"
-    });
+    };
   } catch (err: any) {
     console.error("[LAUNCH] ❌ ERROR:", err?.message || err);
     console.error("[LAUNCH] Stack:", err?.stack);
     
-    return res.status(500).json({ 
-      success: false,
-      error: String(err?.message || err),
-      errorType: err?.name,
-      timestamp: new Date().toISOString(),
-      hint: "Check server logs for details"
-    });
+    throw err;
   }
 }
